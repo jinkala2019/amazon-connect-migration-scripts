@@ -1,0 +1,15 @@
+{
+  "description": "Phone number mapping from source instance to target instance",
+  "instructions": [
+    "1. Replace example phone IDs with actual source instance phone number IDs",
+    "2. Replace example phone IDs with corresponding target instance phone number IDs", 
+    "3. Add more mappings as needed",
+    "4. Remove these instruction lines before using",
+    "5. Save file and use with --phone-mapping parameter"
+  ],
+  "phone_number_mappings": {
+    "phone-12345678-1234-1234-1234-123456789012": "phone-87654321-4321-4321-4321-210987654321",
+    "phone-11111111-2222-3333-4444-555555555555": "phone-22222222-3333-4444-5555-666666666666",
+    "phone-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee": "phone-ffffffff-0000-1111-2222-333333333333"
+  }
+}
