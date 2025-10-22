@@ -53,6 +53,48 @@ The queue export script filters queues based on the `BU` tag (Business Unit):
 3. **Multiple Tags Support**: Queues can have multiple tags; only BU tag is used for filtering
 4. **Complete Export**: Exports all configurations and associated quick connects for matching queues
 
+## Queue Name Prefix Filtering
+
+### How Queue Prefix Filtering Works
+
+The `--queue-prefix` parameter allows you to export only queues whose names start with a specific string, in addition to matching the BU tag.
+
+**Filtering Logic**: Queue must match BOTH conditions:
+1. **BU Tag Match**: Queue has the specified BU tag value
+2. **Name Prefix Match**: Queue name starts with the specified prefix (case-sensitive)
+
+### Queue Prefix Examples
+
+#### Example 1: Export QC Queues Only
+```bash
+# Export only queues starting with "Q_QC_" and BU tag "Sales"
+python connect_queue_export.py --instance-id abc123 --bu-tag "Sales" --queue-prefix "Q_QC_"
+
+# This will match:
+# - Q_QC_Sales_General (BU=Sales, starts with Q_QC_) ✅
+# - Q_QC_Sales_Priority (BU=Sales, starts with Q_QC_) ✅
+
+# This will NOT match:
+# - Sales_General (BU=Sales, but doesn't start with Q_QC_) ❌
+# - Q_QC_Support_General (starts with Q_QC_, but BU=Support) ❌
+```
+
+#### Example 2: Export Department-Specific Queues
+```bash
+# Export only sales department queues
+python connect_queue_export.py --instance-id abc123 --bu-tag "Sales" --queue-prefix "SALES_"
+
+# Export only support department queues  
+python connect_queue_export.py --instance-id abc123 --bu-tag "Support" --queue-prefix "SUP_"
+```
+
+#### Example 3: Export All Queues (No Prefix Filter)
+```bash
+# Export all queues with BU tag "Sales" (any name)
+python connect_queue_export.py --instance-id abc123 --bu-tag "Sales"
+# No --queue-prefix parameter = exports all queue names
+```
+
 ### BU Tag Examples
 
 #### Example 1: Standard BU Tag
@@ -114,6 +156,7 @@ Required:
   --bu-tag TEXT         BU tag value to filter queues
 
 Optional:
+  --queue-prefix TEXT   Queue name prefix to filter (e.g., "Q_QC_" for queues starting with Q_QC_)
   --region TEXT         AWS region (default: us-east-1)
   --profile TEXT        AWS profile name
   --output TEXT         Output file path (auto-generated if not specified)
@@ -138,21 +181,26 @@ Optional:
 
 ### Export Examples
 ```bash
-# Basic export with BU tag filtering
+# Basic export with BU tag filtering (all queues)
 python connect_queue_export.py --instance-id abc123-def456 --bu-tag "Sales"
 
+# Export queues with specific prefix and BU tag
+python connect_queue_export.py --instance-id abc123 --bu-tag "Sales" --queue-prefix "Q_QC_"
+
+# Export queues starting with "SALES_" and BU tag "Sales"
+python connect_queue_export.py --instance-id abc123 --bu-tag "Sales" --queue-prefix "SALES_"
+
 # Export with custom filename
-python connect_queue_export.py --instance-id abc123 --bu-tag "Support" --output support_queues.json
+python connect_queue_export.py --instance-id abc123 --bu-tag "Support" --queue-prefix "SUP_" --output support_queues.json
 
 # Export using specific AWS profile
-python connect_queue_export.py --instance-id abc123 --bu-tag "Marketing" --profile production
+python connect_queue_export.py --instance-id abc123 --bu-tag "Marketing" --queue-prefix "MKT_" --profile production
 
 # Export from different region
 python connect_queue_export.py --instance-id abc123 --bu-tag "Sales" --region eu-west-1
 
-# Case-insensitive BU tag matching
-python connect_queue_export.py --instance-id abc123 --bu-tag "sales"  # Matches BU="Sales"
-python connect_queue_export.py --instance-id abc123 --bu-tag "SUPPORT"  # Matches BU="support"
+# Case-insensitive BU tag matching (prefix is case-sensitive)
+python connect_queue_export.py --instance-id abc123 --bu-tag "sales" --queue-prefix "Q_QC_"  # Matches BU="Sales"
 ```
 
 ### Import Examples
@@ -181,6 +229,7 @@ The export file contains complete queue configurations with BU filtering results
 {
   "InstanceId": "source-instance-id",
   "BUTagValue": "Sales",
+  "QueuePrefix": "Q_QC_",
   "ExportTimestamp": "2024-01-15T14:30:25Z",
   "TotalQueuesScanned": 100,
   "MatchingQueues": 15,

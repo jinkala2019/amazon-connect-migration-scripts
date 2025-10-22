@@ -24,25 +24,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ConnectQueueExporter:
-    def __init__(self, instance_id: str, bu_tag_value: str, region: str = 'us-east-1', profile: Optional[str] = None):
+    def __init__(self, instance_id: str, bu_tag_value: str, region: str = 'us-east-1', profile: Optional[str] = None, queue_prefix: Optional[str] = None):
         """
-        Initialize the Connect Queue Exporter with BU tag filtering
+        Initialize the Connect Queue Exporter with BU tag and queue name filtering
         
         Args:
             instance_id: Amazon Connect instance ID
             bu_tag_value: BU tag value to filter queues
             region: AWS region
             profile: AWS profile name (optional)
+            queue_prefix: Queue name prefix to filter (e.g., "Q_QC_" to match queues starting with Q_QC_)
         """
         self.instance_id = instance_id
         self.bu_tag_value = bu_tag_value
+        self.queue_prefix = queue_prefix
         self.region = region
         
         # Initialize AWS session and client
         session = boto3.Session(profile_name=profile) if profile else boto3.Session()
         self.connect_client = session.client('connect', region_name=region)
         
-        logger.info(f"Initialized queue exporter for instance: {instance_id}, BU: {bu_tag_value} in region: {region}")
+        if queue_prefix:
+            logger.info(f"Initialized queue exporter for instance: {instance_id}, BU: {bu_tag_value}, Queue prefix: {queue_prefix} in region: {region}")
+        else:
+            logger.info(f"Initialized queue exporter for instance: {instance_id}, BU: {bu_tag_value} (all queues) in region: {region}")
     
     def get_all_queues(self) -> List[Dict]:
         """
@@ -127,6 +132,37 @@ class ConnectQueueExporter:
             if tag_key.lower() == 'bu' and tag_value.lower() == self.bu_tag_value.lower():
                 return True
         return False
+    
+    def queue_matches_name_prefix(self, queue_name: str) -> bool:
+        """
+        Check if queue name starts with the specified prefix
+        
+        Args:
+            queue_name: Queue name to check
+            
+        Returns:
+            True if queue name matches prefix (or no prefix specified), False otherwise
+        """
+        if not self.queue_prefix:
+            return True  # No prefix filter, all names match
+        
+        return queue_name.startswith(self.queue_prefix)
+    
+    def queue_matches_filters(self, queue_name: str, queue_tags: Dict[str, str]) -> bool:
+        """
+        Check if queue matches both BU tag and name prefix filters
+        
+        Args:
+            queue_name: Queue name to check
+            queue_tags: Dictionary of queue tags
+            
+        Returns:
+            True if queue matches all filters, False otherwise
+        """
+        bu_match = self.queue_matches_bu_tag(queue_tags)
+        name_match = self.queue_matches_name_prefix(queue_name)
+        
+        return bu_match and name_match
     
     def get_queue_details(self, queue_id: str) -> Dict:
         """
@@ -228,9 +264,17 @@ class ConnectQueueExporter:
         """
         if not output_file:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = f"connect_queues_export_{self.instance_id}_{self.bu_tag_value}_{timestamp}.json"
+            if self.queue_prefix:
+                # Replace special characters in prefix for filename
+                safe_prefix = self.queue_prefix.replace('*', 'ALL').replace('_', '').replace('-', '')
+                output_file = f"connect_queues_export_{self.instance_id}_{self.bu_tag_value}_{safe_prefix}_{timestamp}.json"
+            else:
+                output_file = f"connect_queues_export_{self.instance_id}_{self.bu_tag_value}_{timestamp}.json"
         
-        logger.info(f"Starting queue export process for BU tag: {self.bu_tag_value}...")
+        if self.queue_prefix:
+            logger.info(f"Starting queue export process for BU tag: {self.bu_tag_value}, Queue prefix: {self.queue_prefix}...")
+        else:
+            logger.info(f"Starting queue export process for BU tag: {self.bu_tag_value} (all queues)...")
         
         # Get all queues
         all_queues = self.get_all_queues()
@@ -258,23 +302,36 @@ class ConnectQueueExporter:
                 
                 queue_tags = self.get_queue_tags(queue_arn)
                 
-                if self.queue_matches_bu_tag(queue_tags):
+                if self.queue_matches_filters(queue_name, queue_tags):
                     matching_queues.append(queue_summary)
-                    logger.info(f"Queue matches BU tag '{self.bu_tag_value}': {queue_name}")
+                    if self.queue_prefix:
+                        logger.info(f"Queue matches BU tag '{self.bu_tag_value}' and prefix '{self.queue_prefix}': {queue_name}")
+                    else:
+                        logger.info(f"Queue matches BU tag '{self.bu_tag_value}': {queue_name}")
                 else:
-                    logger.debug(f"Queue does not match BU tag: {queue_name} (tags: {queue_tags})")
+                    if self.queue_prefix:
+                        logger.debug(f"Queue does not match filters: {queue_name} (BU tag: {self.queue_matches_bu_tag(queue_tags)}, prefix: {self.queue_matches_name_prefix(queue_name)})")
+                    else:
+                        logger.debug(f"Queue does not match BU tag: {queue_name} (tags: {queue_tags})")
                     
             except Exception as e:
                 logger.warning(f"Error checking BU tag for queue {queue_name}: {e}")
         
-        logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}'")
+        if self.queue_prefix:
+            logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}' and prefix '{self.queue_prefix}'")
+        else:
+            logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}'")
         
         if not matching_queues:
-            logger.warning(f"No queues found with BU tag '{self.bu_tag_value}'")
+            if self.queue_prefix:
+                logger.warning(f"No queues found with BU tag '{self.bu_tag_value}' and prefix '{self.queue_prefix}'")
+            else:
+                logger.warning(f"No queues found with BU tag '{self.bu_tag_value}'")
             # Still create export file with empty results
             export_data = {
                 'InstanceId': self.instance_id,
                 'BUTagValue': self.bu_tag_value,
+                'QueuePrefix': self.queue_prefix,
                 'ExportTimestamp': datetime.utcnow().isoformat(),
                 'TotalQueuesScanned': len(all_queues),
                 'MatchingQueues': 0,
@@ -319,6 +376,7 @@ class ConnectQueueExporter:
         export_data = {
             'InstanceId': self.instance_id,
             'BUTagValue': self.bu_tag_value,
+            'QueuePrefix': self.queue_prefix,
             'ExportTimestamp': datetime.utcnow().isoformat(),
             'TotalQueuesScanned': len(all_queues),
             'MatchingQueues': len(matching_queues),
@@ -335,7 +393,10 @@ class ConnectQueueExporter:
             
             logger.info(f"Export completed successfully!")
             logger.info(f"Scanned {len(all_queues)} total queues")
-            logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}'")
+            if self.queue_prefix:
+                logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}' and prefix '{self.queue_prefix}'")
+            else:
+                logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}'")
             logger.info(f"Exported {len(exported_queues)} queues to {output_file}")
             logger.info(f"Failed exports: {len(failed_exports)}")
             
@@ -352,6 +413,7 @@ def main():
     parser = argparse.ArgumentParser(description='Export Amazon Connect queues by BU tag')
     parser.add_argument('--instance-id', required=True, help='Amazon Connect instance ID')
     parser.add_argument('--bu-tag', required=True, help='BU tag value to filter queues')
+    parser.add_argument('--queue-prefix', help='Queue name prefix to filter (e.g., "Q_QC_" for queues starting with Q_QC_)')
     parser.add_argument('--region', default='us-east-1', help='AWS region')
     parser.add_argument('--profile', help='AWS profile name')
     parser.add_argument('--output', help='Output file path')
@@ -363,7 +425,8 @@ def main():
             instance_id=args.instance_id,
             bu_tag_value=args.bu_tag,
             region=args.region,
-            profile=args.profile
+            profile=args.profile,
+            queue_prefix=args.queue_prefix
         )
         
         output_file = exporter.export_queues_by_bu_tag(args.output)
