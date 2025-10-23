@@ -12,6 +12,7 @@ This guide covers the migration of Queues between Amazon Connect instances with 
 ## Key Features
 
 - ✅ **BU Tag Filtering** - Export only queues matching specific BU tag values
+- ✅ **Standard Queue Focus** - Exports only STANDARD queues (excludes AGENT queues)
 - ✅ **Runtime BU Parameter** - Pass BU tag value at runtime
 - ✅ **Case-Insensitive Matching** - Matches BU tags regardless of case
 - ✅ **Multiple Tags Support** - Handles queues with multiple tags
@@ -48,10 +49,15 @@ python connect_queue_import.py --instance-id target-instance-id --export-file qu
 
 The queue export script filters queues based on the `BU` tag (Business Unit):
 
-1. **Tag Key Matching**: Looks for tag keys `BU`, `bu`, `Bu` (case-insensitive)
-2. **Value Matching**: Compares tag values (case-insensitive)
-3. **Multiple Tags Support**: Queues can have multiple tags; only BU tag is used for filtering
-4. **Complete Export**: Exports all configurations and associated quick connects for matching queues
+1. **Queue Type Filtering**: Only processes STANDARD queues (AGENT queues are automatically excluded)
+2. **Tag Key Matching**: Looks for tag keys `BU`, `bu`, `Bu` (case-insensitive)
+3. **Value Matching**: Compares tag values (case-insensitive)
+4. **Multiple Tags Support**: Queues can have multiple tags; only BU tag is used for filtering
+5. **Complete Export**: Exports all configurations and associated quick connects for matching queues
+
+### Queue Types Supported
+
+**STANDARD Queues Only**: The script automatically filters for standard queues and excludes agent queues to prevent ARN format issues and ensure proper migration compatibility.
 
 ## Queue Name Prefix Filtering
 

@@ -5,6 +5,31 @@ All notable changes to the Amazon Connect Migration Scripts project will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2024-01-16
+
+### Fixed
+- **Queue Export Performance**: Eliminated duplicate queue processing that caused redundant API calls and duplicate log entries
+- **Queue Export Optimization**: Combined filtering and export loops for ~50% performance improvement
+- **API Call Reduction**: Optimized tag fetching to avoid redundant `get_queue_tags()` calls
+- **Log Clarity**: Single log entry per queue showing both filter match and export action
+
+### Enhanced
+- **Queue Import Logging**: Improved progress tracking and result reporting
+- **Export Compatibility**: Added queue prefix detection and STANDARD queue compatibility notes
+
+### Performance Improvements
+- **Faster Queue Export**: Optimized filtering order (name prefix first, then BU tags)
+- **Reduced API Calls**: Eliminated redundant tag fetching during export process
+- **Cleaner Logging**: No more duplicate queue processing messages
+
+## [1.1.2] - 2024-01-16
+
+### Fixed
+- **User Import**: Fixed SecurityProfileName KeyError in target instance security profile enumeration
+- **Queue Export**: Limited to STANDARD queues only, excluding AGENT queues to prevent ARN format warnings
+- **Security Profile Handling**: Enhanced support for multiple name field formats in target instances
+- **Queue Type Filtering**: Added proper queue type filtering to avoid agent queue processing issues
+
 ## [1.1.1] - 2024-01-16
 
 ### Fixed

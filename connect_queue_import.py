@@ -63,7 +63,10 @@ class ConnectQueueImporter:
             logger.info(f"Loaded export data from {export_file}")
             logger.info(f"Source instance: {data.get('InstanceId')}")
             logger.info(f"BU tag value: {data.get('BUTagValue')}")
+            if data.get('QueuePrefix'):
+                logger.info(f"Queue prefix filter: {data.get('QueuePrefix')}")
             logger.info(f"Total queues in export: {data.get('SuccessfulExports', 0)}")
+            logger.info("Note: Import supports STANDARD queues exported by the optimized export script")
             
             return data
             
@@ -452,23 +455,25 @@ class ConnectQueueImporter:
         }
         
         # Process queues
-        for queue_data in queues_to_import:
+        for i, queue_data in enumerate(queues_to_import, 1):
             queue_name = queue_data['Queue']['Name']
             
             try:
                 # Check if queue already exists
                 if queue_name in existing_resources['queues']:
-                    logger.warning(f"Queue already exists: {queue_name}")
+                    logger.warning(f"Queue {i}/{len(queues_to_import)} already exists: {queue_name}")
                     results['skipped'] += 1
                     continue
                 
                 if dry_run:
-                    logger.info(f"[DRY RUN] Would create queue: {queue_name}")
+                    logger.info(f"[DRY RUN] Queue {i}/{len(queues_to_import)}: Would create {queue_name}")
                     results['success'] += 1
                 else:
                     # Actually create the queue
+                    logger.info(f"Importing queue {i}/{len(queues_to_import)}: {queue_name}")
                     if self.create_queue(queue_data, existing_resources):
                         results['success'] += 1
+                        logger.info(f"Successfully created queue: {queue_name}")
                     else:
                         results['failed'] += 1
                         results['failed_queues'].append(queue_name)
@@ -482,15 +487,17 @@ class ConnectQueueImporter:
             time.sleep(0.5)
         
         # Log final results
-        logger.info("Import process completed!")
-        logger.info(f"Successful: {results['success']}")
-        logger.info(f"Failed: {results['failed']}")
-        logger.info(f"Skipped: {results['skipped']}")
+        logger.info("Queue import process completed!")
+        logger.info(f"Successfully imported: {results['success']} queues")
+        if results['failed'] > 0:
+            logger.warning(f"Failed imports: {results['failed']} queues")
+        if results['skipped'] > 0:
+            logger.info(f"Skipped (already exist): {results['skipped']} queues")
         
         if results['failed_queues']:
-            logger.info(f"Failed queues: {', '.join(results['failed_queues'][:10])}")
+            logger.warning(f"Failed queue names: {', '.join(results['failed_queues'][:10])}")
             if len(results['failed_queues']) > 10:
-                logger.info(f"... and {len(results['failed_queues']) - 10} more")
+                logger.warning(f"... and {len(results['failed_queues']) - 10} more failed queues")
         
         return results
 

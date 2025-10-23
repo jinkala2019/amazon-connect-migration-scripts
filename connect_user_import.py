@@ -103,7 +103,12 @@ class ConnectUserImporter:
             security_paginator = self.connect_client.get_paginator('list_security_profiles')
             for page in security_paginator.paginate(InstanceId=self.instance_id):
                 for profile in page.get('SecurityProfileSummaryList', []):
-                    resources['security_profiles'][profile['SecurityProfileName']] = profile['Id']
+                    # Handle different possible field names for security profile name
+                    profile_name = profile.get('SecurityProfileName') or profile.get('Name')
+                    if profile_name:
+                        resources['security_profiles'][profile_name] = profile['Id']
+                    else:
+                        logger.warning(f"Security profile missing name field in target instance: {profile}")
             
             # Get hierarchy groups
             logger.info("Fetching existing hierarchy groups...")

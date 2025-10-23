@@ -409,6 +409,8 @@ python connect_user_import.py --batch-size 100 --export-file users.json --dry-ru
 | **Quick Connect 'Name' errors** | Malformed export data or missing fields | ✅ **FIXED**: Enhanced error handling with graceful fallback |
 | **Queue ARN tagging errors** | Invalid ARN formats in AWS API responses | ✅ **FIXED**: ARN validation and multiple field name support |
 | **BadRequestException on queue tags** | Inconsistent ARN field names between API calls | ✅ **FIXED**: Improved ARN handling with fallback mechanisms |
+| **SecurityProfileName errors in import** | Direct dictionary access without safe .get() method | ✅ **FIXED**: Enhanced security profile name field handling |
+| **Agent queue ARN warnings** | Queue export including both standard and agent queues | ✅ **FIXED**: Limited export to STANDARD queues only |
 
 ### Diagnostic Commands
 
