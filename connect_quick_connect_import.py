@@ -172,8 +172,12 @@ class ConnectQuickConnectImporter:
         Returns:
             True if successful, False otherwise
         """
-        qc_info = qc_data['QuickConnect']
-        qc_name = qc_info['Name']
+        qc_info = qc_data.get('QuickConnect', {})
+        qc_name = qc_info.get('Name')
+        
+        if not qc_name:
+            logger.error(f"Quick connect missing 'Name' field: {qc_data}")
+            return False
         
         try:
             # Map quick connect configuration
@@ -245,9 +249,17 @@ class ConnectQuickConnectImporter:
         
         # Process quick connects
         for qc_data in qcs_to_import:
-            qc_name = qc_data['QuickConnect']['Name']
-            
             try:
+                # Safely extract quick connect name with error handling
+                qc_info = qc_data.get('QuickConnect', {})
+                qc_name = qc_info.get('Name')
+                
+                if not qc_name:
+                    logger.error(f"Quick connect missing 'Name' field in data: {qc_data}")
+                    results['failed'] += 1
+                    results['failed_quick_connects'].append('Unknown - Missing Name')
+                    continue
+                
                 # Check if quick connect already exists
                 if qc_name in existing_qcs:
                     logger.warning(f"Quick connect already exists: {qc_name}")

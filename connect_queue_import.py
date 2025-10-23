@@ -145,8 +145,12 @@ class ConnectQueueImporter:
         Returns:
             Quick connect ID if created/found, None if failed
         """
-        qc_info = qc_data['QuickConnect']
-        qc_name = qc_info['Name']
+        qc_info = qc_data.get('QuickConnect', {})
+        qc_name = qc_info.get('Name')
+        
+        if not qc_name:
+            logger.error(f"Quick connect missing 'Name' field: {qc_data}")
+            return None
         
         try:
             # Prepare quick connect creation parameters
@@ -347,7 +351,13 @@ class ConnectQueueImporter:
         quick_connect_ids = []
         
         for qc_data in quick_connects:
-            qc_name = qc_data['QuickConnect']['Name']
+            # Safely extract quick connect name
+            qc_info = qc_data.get('QuickConnect', {})
+            qc_name = qc_info.get('Name')
+            
+            if not qc_name:
+                logger.warning(f"Quick connect missing 'Name' field, skipping: {qc_data}")
+                continue
             
             # Check if quick connect exists in target
             qc_id = existing_resources['quick_connects'].get(qc_name)

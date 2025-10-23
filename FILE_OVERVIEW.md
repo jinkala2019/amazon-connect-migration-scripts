@@ -38,6 +38,7 @@
   - Resource mapping between instances
   - Conflict resolution for existing quick connects
   - Tag preservation during import
+  - ✅ **Enhanced**: Fixed 'Name' field access errors and improved data validation
 - **Usage**: `python connect_quick_connect_import.py --instance-id target-id --export-file qc_export.json`
 
 ### Queue Migration with BU Tag Filtering
@@ -48,7 +49,8 @@
   - Case-insensitive BU tag matching
   - Exports associated quick connects automatically
   - Complete queue configuration preservation
-- **Usage**: `python connect_queue_export.py --instance-id source-id --bu-tag "Sales"`
+  - ✅ **Enhanced**: Fixed ARN tagging errors and improved queue prefix filtering
+- **Usage**: `python connect_queue_export.py --instance-id source-id --bu-tag "Sales" --queue-prefix "Q_QC_"`
 
 #### `connect_queue_import.py` - **Queue Import Script**
 - **Purpose**: Imports queues with associated quick connects
@@ -56,6 +58,7 @@
   - Automatic quick connect creation for missing resources
   - Hours of operation mapping
   - Complete configuration restoration including tags
+  - ✅ **Enhanced**: Fixed quick connect name access errors and improved error handling
 - **Usage**: `python connect_queue_import.py --instance-id target-id --export-file queues_export.json`
 
 ## Helper & Optimization Scripts

@@ -319,6 +319,12 @@ The import script handles resource ID mapping between source and target instance
 ```
 **Solution**: Check that referenced users/queues exist in target instance
 
+**Quick Connect 'Name' Field Errors** ✅ **FIXED**
+```
+2024-01-15 16:00:09,123 - ERROR - Quick connect missing 'Name' field in data: {...}
+```
+**Solution**: Enhanced error handling now gracefully handles malformed export data and provides detailed error messages
+
 **Resource Mapping Issues**
 ```
 2024-01-15 16:00:11,345 - WARNING - User mapping for quick connect not fully implemented
@@ -330,6 +336,12 @@ The import script handles resource ID mapping between source and target instance
 2024-01-15 16:00:12,456 - WARNING - Quick connect already exists: Support Queue
 ```
 **Solution**: This is normal behavior - existing quick connects are skipped (not overwritten)
+
+**Malformed Export Data** ✅ **FIXED**
+```
+2024-01-15 16:00:08,789 - ERROR - Quick connect missing 'Name' field, skipping: Unknown - Missing Name
+```
+**Solution**: Script now validates data structure and continues processing other quick connects when individual items are malformed
 
 ### Performance Optimization
 

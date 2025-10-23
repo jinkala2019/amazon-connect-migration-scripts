@@ -22,6 +22,14 @@ pip install -r requirements.txt
 aws configure  # or set environment variables
 ```
 
+### 4. Script Version Verification ✅ **IMPORTANT**
+- [ ] Ensure you have the latest version with bug fixes (v1.1.1+)
+- [ ] Recent fixes include:
+  - ✅ Quick Connect 'Name' field error handling
+  - ✅ Queue ARN tagging error resolution
+  - ✅ Enhanced data validation and error recovery
+- [ ] Review `BUG_FIXES_SUMMARY.md` for details on recent improvements
+
 ## Migration Process
 
 ### Phase 1: Export & Analysis

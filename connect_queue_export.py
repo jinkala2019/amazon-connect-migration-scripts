@@ -107,11 +107,24 @@ class ConnectQueueExporter:
         Returns:
             Dictionary of tags
         """
+        if not queue_arn:
+            logger.debug("Empty queue ARN provided, returning empty tags")
+            return {}
+        
+        # Validate ARN format
+        if not queue_arn.startswith('arn:aws:connect:'):
+            logger.warning(f"Invalid ARN format for queue: {queue_arn}")
+            return {}
+        
         try:
             response = self.connect_client.list_tags_for_resource(resourceArn=queue_arn)
             return response.get('tags', {})
         except ClientError as e:
-            logger.warning(f"Could not fetch tags for queue {queue_arn}: {e}")
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            if error_code == 'BadRequestException':
+                logger.warning(f"Invalid ARN format for queue tagging: {queue_arn}")
+            else:
+                logger.warning(f"Could not fetch tags for queue {queue_arn}: {e}")
             return {}
         except Exception as e:
             logger.warning(f"Unexpected error fetching tags for queue {queue_arn}: {e}")
@@ -291,16 +304,27 @@ class ConnectQueueExporter:
             
             try:
                 # Get queue tags to check BU tag
-                queue_arn = queue_summary.get('Arn')
+                # Try multiple ARN field names for compatibility
+                queue_arn = queue_summary.get('Arn') or queue_summary.get('QueueArn')
+                
                 if not queue_arn:
                     # If ARN not in summary, get it from detailed info
-                    queue_detail = self.connect_client.describe_queue(
-                        InstanceId=self.instance_id,
-                        QueueId=queue_id
-                    )
-                    queue_arn = queue_detail['Queue']['QueueArn']
+                    try:
+                        queue_detail = self.connect_client.describe_queue(
+                            InstanceId=self.instance_id,
+                            QueueId=queue_id
+                        )
+                        queue_arn = queue_detail['Queue'].get('QueueArn') or queue_detail['Queue'].get('Arn')
+                    except ClientError as e:
+                        logger.warning(f"Could not get queue details for {queue_name} ({queue_id}): {e}")
+                        queue_arn = None
                 
-                queue_tags = self.get_queue_tags(queue_arn)
+                # Get tags only if we have a valid ARN
+                if queue_arn:
+                    queue_tags = self.get_queue_tags(queue_arn)
+                else:
+                    logger.warning(f"No valid ARN found for queue {queue_name} ({queue_id}), skipping tag check")
+                    queue_tags = {}
                 
                 if self.queue_matches_filters(queue_name, queue_tags):
                     matching_queues.append(queue_summary)

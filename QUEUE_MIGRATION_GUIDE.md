@@ -481,11 +481,29 @@ python connect_queue_import.py --instance-id marketing-target-id --export-file m
 ```
 **Solution**: Add `connect:ListTagsForResource` permission to IAM policy
 
+**Queue ARN Format Errors** ✅ **FIXED**
+```
+2024-01-15 14:30:32,123 - WARNING - Invalid ARN format for queue tagging: invalid-arn-format
+```
+**Solution**: Enhanced ARN validation now handles inconsistent ARN field names and validates format before API calls
+
+**BadRequestException on Queue Tags** ✅ **FIXED**
+```
+2024-01-15 14:30:33,456 - WARNING - Invalid ARN format for queue tagging: arn:aws:connect:...
+```
+**Solution**: Script now tries multiple ARN field names and gracefully handles invalid ARNs without stopping the export
+
 **Queue Access Issues**
 ```
 2024-01-15 14:30:32,789 - ERROR - AWS API error while fetching queue details for queue-123: AccessDenied
 ```
 **Solution**: Ensure `connect:DescribeQueue` permission for source instance
+
+**Missing Queue ARNs** ✅ **FIXED**
+```
+2024-01-15 14:30:34,567 - WARNING - No valid ARN found for queue Sales Queue (queue-123), skipping tag check
+```
+**Solution**: Script now continues processing queues even when ARNs are unavailable, using empty tags as fallback
 
 #### 3. Import Issues
 

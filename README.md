@@ -25,7 +25,7 @@ This repository contains comprehensive Python scripts for migrating Amazon Conne
 - **Cross-Region Migration**: Full support for migrating between different AWS regions
 - **Tag Preservation**: Maintains all custom tags during migration
 - **Dry Run Mode**: Validate imports without making changes
-- **Enhanced Error Handling**: Detailed logging with specific resource identification
+- **Enhanced Error Handling**: Detailed logging with specific resource identification and graceful failure recovery
 - **Conflict Resolution**: Handles existing resources without overwriting
 - **Performance Optimization**: Built-in rate limiting and memory-efficient processing
 - **Security Profile Helper**: Automated analysis and creation of missing security profiles
@@ -406,6 +406,9 @@ python connect_user_import.py --batch-size 100 --export-file users.json --dry-ru
 | **Routing profile creation fails** | Missing queue dependencies | Ensure referenced queues exist in target instance |
 | **Users skipped** | Missing security profiles or routing profiles | Use security_profile_helper.py to analyze and create missing profiles |
 | **SecurityProfileName errors** | Security profile field name issues | Enhanced script now handles multiple field name formats |
+| **Quick Connect 'Name' errors** | Malformed export data or missing fields | ✅ **FIXED**: Enhanced error handling with graceful fallback |
+| **Queue ARN tagging errors** | Invalid ARN formats in AWS API responses | ✅ **FIXED**: ARN validation and multiple field name support |
+| **BadRequestException on queue tags** | Inconsistent ARN field names between API calls | ✅ **FIXED**: Improved ARN handling with fallback mechanisms |
 
 ### Diagnostic Commands
 
