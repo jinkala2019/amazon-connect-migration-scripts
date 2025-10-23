@@ -65,7 +65,7 @@ class ConnectQueueExporter:
         try:
             while True:
                 page_count += 1
-                logger.info(f"Fetching queues page {page_count}...")
+                logger.debug(f"Fetching queues page {page_count}...")
                 
                 params = {
                     'InstanceId': self.instance_id,
@@ -81,7 +81,7 @@ class ConnectQueueExporter:
                 page_queues = response.get('QueueSummaryList', [])
                 queues.extend(page_queues)
                 
-                logger.info(f"Retrieved {len(page_queues)} queues from page {page_count}")
+                logger.debug(f"Retrieved {len(page_queues)} queues from page {page_count}")
                 
                 next_token = response.get('NextToken')
                 if not next_token:
@@ -90,7 +90,7 @@ class ConnectQueueExporter:
                 # Rate limiting to avoid throttling
                 time.sleep(0.1)
             
-            logger.info(f"Total queues retrieved: {len(queues)}")
+            logger.info(f"Retrieved {len(queues)} total standard queues")
             return queues
             
         except ClientError as e:
@@ -99,6 +99,74 @@ class ConnectQueueExporter:
         except Exception as e:
             logger.error(f"Unexpected error while fetching queues: {e}")
             raise
+    
+    def build_queue_metadata_cache(self) -> List[Dict]:
+        """
+        Build a complete metadata cache for all queues (names, IDs, tags)
+        This allows for fast local filtering without repeated API calls
+        
+        Returns:
+            List of queue metadata dictionaries
+        """
+        logger.info("Phase 1: Fetching all queue summaries...")
+        all_queues = self.get_all_queues()
+        
+        if not all_queues:
+            return []
+        
+        logger.info(f"Phase 2: Building metadata cache for {len(all_queues)} queues...")
+        queue_cache = []
+        
+        for i, queue_summary in enumerate(all_queues, 1):
+            queue_id = queue_summary['Id']
+            queue_name = queue_summary.get('Name', 'Unknown')
+            
+            try:
+                # Get queue ARN for tag fetching
+                queue_arn = queue_summary.get('Arn') or queue_summary.get('QueueArn')
+                
+                if not queue_arn:
+                    # If ARN not in summary, get it from detailed info
+                    try:
+                        queue_detail = self.connect_client.describe_queue(
+                            InstanceId=self.instance_id,
+                            QueueId=queue_id
+                        )
+                        queue_arn = queue_detail['Queue'].get('QueueArn') or queue_detail['Queue'].get('Arn')
+                    except ClientError as e:
+                        logger.debug(f"Could not get queue details for {queue_name}: {e}")
+                        continue
+                
+                # Get tags for this queue
+                queue_tags = {}
+                if queue_arn:
+                    queue_tags = self.get_queue_tags(queue_arn)
+                
+                # Add to cache
+                queue_cache.append({
+                    'id': queue_id,
+                    'name': queue_name,
+                    'arn': queue_arn,
+                    'tags': queue_tags,
+                    'summary': queue_summary
+                })
+                
+                # Progress indicator for large datasets
+                if i % 100 == 0:
+                    logger.info(f"Cached metadata for {i}/{len(all_queues)} queues...")
+                elif i % 25 == 0:
+                    logger.debug(f"Cached metadata for {i}/{len(all_queues)} queues...")
+                
+                # Rate limiting to avoid throttling
+                if i % 10 == 0:
+                    time.sleep(0.1)
+                    
+            except Exception as e:
+                logger.warning(f"Failed to cache metadata for queue {queue_name}: {e}")
+                continue
+        
+        logger.info(f"Metadata cache complete: {len(queue_cache)} queues cached")
+        return queue_cache
     
     def get_queue_tags(self, queue_arn: str) -> Dict[str, str]:
         """
@@ -292,94 +360,62 @@ class ConnectQueueExporter:
                 output_file = f"connect_queues_export_{self.instance_id}_{self.bu_tag_value}_{timestamp}.json"
         
         if self.queue_prefix:
-            logger.info(f"Starting optimized queue export for BU tag: {self.bu_tag_value}, Queue prefix: {self.queue_prefix} (standard queues only)...")
-            logger.info("Optimization: BU tag filtering first, then name prefix filtering for maximum performance")
+            logger.info(f"Starting cache-optimized queue export for BU tag: {self.bu_tag_value}, Queue prefix: {self.queue_prefix} (standard queues only)...")
+            logger.info("Performance Optimization: Building metadata cache first, then applying filters locally for maximum speed")
         else:
-            logger.info(f"Starting queue export process for BU tag: {self.bu_tag_value} (all standard queues)...")
+            logger.info(f"Starting cache-optimized queue export for BU tag: {self.bu_tag_value} (all standard queues)...")
+            logger.info("Performance Optimization: Building metadata cache first, then applying filters locally")
         
-        # Get all queues
-        all_queues = self.get_all_queues()
+        # Cache-first approach: Build complete queue metadata cache, then filter locally
+        logger.info("Building queue metadata cache for fast filtering...")
+        queue_cache = self.build_queue_metadata_cache()
         
-        if not all_queues:
+        if not queue_cache:
             logger.warning("No queues found to export")
             return output_file
         
-        # Optimized two-pass approach: Find BU-tagged queues first, then filter by name
-        logger.info("Phase 1: Identifying queues with matching BU tags...")
-        bu_matching_queues = []
+        logger.info(f"Cache built: {len(queue_cache)} queues with metadata loaded")
         
-        # First pass: Find all queues with matching BU tags
-        for i, queue_summary in enumerate(all_queues, 1):
-            queue_id = queue_summary['Id']
-            queue_name = queue_summary.get('Name', 'Unknown')
+        # Fast local filtering on cached data
+        logger.info("Applying filters on cached data...")
+        matching_queues = []
+        
+        for queue_data in queue_cache:
+            queue_name = queue_data['name']
+            queue_tags = queue_data['tags']
             
-            try:
-                # Get queue ARN for tag checking
-                queue_arn = queue_summary.get('Arn') or queue_summary.get('QueueArn')
-                
-                if not queue_arn:
-                    # If ARN not in summary, get it from detailed info
-                    try:
-                        queue_detail = self.connect_client.describe_queue(
-                            InstanceId=self.instance_id,
-                            QueueId=queue_id
-                        )
-                        queue_arn = queue_detail['Queue'].get('QueueArn') or queue_detail['Queue'].get('Arn')
-                    except ClientError as e:
-                        logger.debug(f"Could not get queue details for {queue_name}: {e}")
-                        continue
-                
-                # Get tags and check BU match
-                if queue_arn:
-                    queue_tags = self.get_queue_tags(queue_arn)
-                    if self.queue_matches_bu_tag(queue_tags):
-                        bu_matching_queues.append({
-                            'summary': queue_summary,
-                            'tags': queue_tags,
-                            'arn': queue_arn
-                        })
-                        logger.debug(f"Queue matches BU tag '{self.bu_tag_value}': {queue_name}")
-                
-                # Progress indicator for large datasets
-                if i % 100 == 0:
-                    logger.info(f"Processed {i}/{len(all_queues)} queues for BU tag matching...")
-                    
-            except Exception as e:
-                logger.debug(f"Error checking BU tag for queue {queue_name}: {e}")
+            # Apply both filters locally (super fast)
+            bu_match = self.queue_matches_bu_tag(queue_tags)
+            name_match = self.queue_matches_name_prefix(queue_name)
+            
+            if bu_match and name_match:
+                matching_queues.append(queue_data)
+                logger.debug(f"Queue matches all filters: {queue_name}")
         
-        logger.info(f"Phase 1 complete: Found {len(bu_matching_queues)} queues with BU tag '{self.bu_tag_value}'")
+        if self.queue_prefix:
+            logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}' and prefix '{self.queue_prefix}'")
+        else:
+            logger.info(f"Found {len(matching_queues)} queues matching BU tag '{self.bu_tag_value}'")
         
-        # Second pass: Apply name prefix filter and export
-        logger.info("Phase 2: Applying name prefix filter and exporting...")
+        # Export matching queues
+        logger.info("Exporting matching queues...")
         exported_queues = []
         failed_exports = []
-        matching_count = 0
         
-        for queue_data in bu_matching_queues:
-            queue_summary = queue_data['summary']
+        for i, queue_data in enumerate(matching_queues, 1):
+            queue_id = queue_data['id']
+            queue_name = queue_data['name']
             queue_tags = queue_data['tags']
-            queue_id = queue_summary['Id']
-            queue_name = queue_summary.get('Name', 'Unknown')
             
             try:
-                # Apply name prefix filter (fast string operation)
-                if not self.queue_matches_name_prefix(queue_name):
-                    logger.debug(f"Queue matches BU but not prefix: {queue_name}")
-                    continue
-                
-                # Queue matches all filters - export it
-                matching_count += 1
-                if self.queue_prefix:
-                    logger.info(f"Exporting queue {matching_count}: {queue_name} (matches BU '{self.bu_tag_value}' and prefix '{self.queue_prefix}')")
-                else:
-                    logger.info(f"Exporting queue {matching_count}: {queue_name} (matches BU '{self.bu_tag_value}')")
+                logger.info(f"Exporting queue {i}/{len(matching_queues)}: {queue_name}")
                 
                 queue_details = self.get_queue_details(queue_id, queue_tags)
                 exported_queues.append(queue_details)
                 
                 # Rate limiting
-                if matching_count % 5 == 0:
-                    time.sleep(1)
+                if i % 5 == 0:
+                    time.sleep(0.5)  # Reduced since we're not doing tag API calls
                     
             except Exception as e:
                 logger.error(f"Failed to export queue {queue_name} ({queue_id}): {e}")
