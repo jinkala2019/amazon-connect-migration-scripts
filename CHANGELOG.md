@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Security Profile Helper**: Fixed SecurityProfileName KeyError in target instance enumeration (same issue as user import)
+- **Windows Compatibility**: Fixed emoji encoding errors on Windows systems by using ASCII-safe characters and UTF-8 file encoding
+- **Quick Connect Export**: Fixed potential duplicate tags in export when AWS API response already includes tags
+- **Quick Connect Import**: Added cross-region mode to skip unnecessary user/queue mapping for standalone quick connect imports
 
 ## [1.1.4] - 2024-01-16
 

@@ -67,6 +67,7 @@ Optional:
   --region TEXT         AWS region (default: us-east-1)
   --profile TEXT        AWS profile name
   --dry-run            Validate without creating quick connects
+  --skip-mapping       Skip user/queue mapping (recommended for cross-region imports)
 ```
 
 ## Usage Examples
@@ -87,18 +88,38 @@ python connect_quick_connect_export.py --instance-id abc123 --region ap-southeas
 ```
 
 ### Import Examples
+
+#### Same-Region Import (with resource mapping)
 ```bash
 # Dry run to validate import (recommended first step)
 python connect_quick_connect_import.py --instance-id target-123 --export-file quick_connects_export.json --dry-run
 
-# Import quick connects
+# Import quick connects with user/queue mapping
 python connect_quick_connect_import.py --instance-id target-123 --export-file quick_connects_export.json
 
 # Import using specific AWS profile
 python connect_quick_connect_import.py --instance-id target-123 --export-file qc_export.json --profile staging
+```
 
-# Import to different region
-python connect_quick_connect_import.py --instance-id target-123 --export-file qc_export.json --region eu-central-1
+#### Cross-Region Import (recommended approach)
+```bash
+# Dry run for cross-region import (fast, no mapping)
+python connect_quick_connect_import.py --instance-id target-123 --export-file quick_connects_export.json --dry-run --skip-mapping
+
+# Cross-region import without user/queue mapping (faster)
+python connect_quick_connect_import.py --instance-id target-123 --export-file qc_export.json --skip-mapping --region eu-central-1
+
+# Cross-region with AWS profile
+python connect_quick_connect_import.py --instance-id target-123 --export-file qc_export.json --skip-mapping --profile production --region ap-southeast-1
+```
+
+#### Standalone Quick Connect Import
+```bash
+# Import only phone number quick connects (no mapping needed)
+python connect_quick_connect_import.py --instance-id target-123 --export-file phone_qc_export.json --skip-mapping
+
+# Fast import when you don't need user/queue ID mapping
+python connect_quick_connect_import.py --instance-id target-123 --export-file qc_export.json --skip-mapping
 ```
 
 ## Export File Structure
@@ -221,15 +242,43 @@ The export file contains complete quick connect configurations:
 }
 ```
 
-## Resource Mapping
+## Resource Mapping Options
 
-### How Resource Mapping Works
+### Standard Import (Default Behavior)
 
 The import script handles resource ID mapping between source and target instances:
 
 1. **User Quick Connects**: Maps user IDs (requires users to exist in target)
-2. **Queue Quick Connects**: Maps queue IDs (requires queues to exist in target)
+2. **Queue Quick Connects**: Maps queue IDs (requires queues to exist in target)  
 3. **Phone Number Quick Connects**: No mapping needed (phone numbers are universal)
+
+**When to use**: Same-region imports where you want to map user/queue references
+
+### Skip Mapping Mode (`--skip-mapping`)
+
+**New Feature**: Skip user/queue mapping for faster, standalone imports
+
+**Benefits**:
+- ✅ **Faster imports** - No user/queue enumeration API calls
+- ✅ **Cross-region friendly** - No dependency on matching users/queues
+- ✅ **Cleaner logs** - No mapping warnings or unnecessary processing
+- ✅ **Standalone imports** - Import quick connects as independent entities
+
+**When to use**:
+- **Cross-region migrations** (different AWS regions)
+- **Phone number quick connects** (don't need user/queue mapping)
+- **Standalone quick connect imports** 
+- **Fast imports** when resource mapping isn't needed
+
+### Mapping Comparison
+
+| Scenario | Use Standard Import | Use `--skip-mapping` |
+|----------|-------------------|---------------------|
+| Same region, matching users/queues | ✅ **Recommended** | ❌ Not needed |
+| Cross-region migration | ❌ Slow, unnecessary | ✅ **Recommended** |
+| Phone number quick connects only | ❌ Unnecessary overhead | ✅ **Recommended** |
+| Standalone quick connect migration | ❌ Slow | ✅ **Recommended** |
+| Large target instances (1000+ users) | ❌ Very slow enumeration | ✅ **Much faster** |
 
 ### Current Limitations
 
@@ -258,17 +307,38 @@ The import script handles resource ID mapping between source and target instance
 2024-01-15 14:35:45,892 - INFO - Failed exports: 2
 ```
 
-#### Import Process
+#### Import Process (Standard Mode)
 ```
 2024-01-15 16:00:00,123 - INFO - Initialized quick connect importer for instance: xyz789 in region: us-east-1
-2024-01-15 16:00:01,234 - INFO - Starting quick connect import process (dry_run=False)...
+2024-01-15 16:00:01,234 - INFO - Starting quick connect import process (dry_run=False, with user/queue mapping)...
 2024-01-15 16:00:02,345 - INFO - Loaded export data from quick_connects_export.json
 2024-01-15 16:00:02,346 - INFO - Total quick connects in export: 48
 2024-01-15 16:00:03,456 - INFO - Fetching existing quick connects...
-2024-01-15 16:00:04,567 - INFO - Found 10 existing quick connects
-2024-01-15 16:00:05,678 - INFO - Created quick connect: Sales Team Lead -> qc-new-12345678
-2024-01-15 16:00:06,789 - WARNING - Quick connect already exists: Support Queue
-2024-01-15 16:00:07,890 - INFO - Created quick connect: External Number -> qc-new-87654321
+2024-01-15 16:00:04,567 - INFO - Fetching existing users for quick connect mapping...
+2024-01-15 16:00:08,890 - INFO - Fetching existing queues for quick connect mapping...
+2024-01-15 16:00:10,123 - INFO - Found 500 users and 100 queues
+2024-01-15 16:00:11,234 - INFO - Found 10 existing quick connects
+2024-01-15 16:00:12,345 - INFO - Created quick connect: Sales Team Lead -> qc-new-12345678
+2024-01-15 16:00:13,456 - WARNING - Quick connect already exists: Support Queue
+2024-01-15 16:00:14,567 - INFO - Created quick connect: External Number -> qc-new-87654321
+2024-01-15 16:00:25,890 - INFO - Import process completed!
+2024-01-15 16:00:25,891 - INFO - Successful: 46
+2024-01-15 16:00:25,892 - INFO - Failed: 1
+2024-01-15 16:00:25,893 - INFO - Skipped: 1
+```
+
+#### Import Process (Skip Mapping Mode - Faster)
+```
+2024-01-15 16:00:00,123 - INFO - Initialized quick connect importer for instance: xyz789 in region: eu-west-1
+2024-01-15 16:00:01,234 - INFO - Starting quick connect import process (dry_run=False, cross-region mode - no mapping)...
+2024-01-15 16:00:02,345 - INFO - Loaded export data from quick_connects_export.json
+2024-01-15 16:00:02,346 - INFO - Total quick connects in export: 48
+2024-01-15 16:00:03,456 - INFO - Fetching existing quick connects...
+2024-01-15 16:00:04,567 - INFO - Skipping user/queue mapping - importing quick connects as standalone entities
+2024-01-15 16:00:05,678 - INFO - Found 10 existing quick connects
+2024-01-15 16:00:06,789 - INFO - Created quick connect: Sales Team Lead -> qc-new-12345678
+2024-01-15 16:00:07,890 - WARNING - Quick connect already exists: Support Queue
+2024-01-15 16:00:08,012 - INFO - Created quick connect: External Number -> qc-new-87654321
 2024-01-15 16:00:15,123 - INFO - Import process completed!
 2024-01-15 16:00:15,124 - INFO - Successful: 46
 2024-01-15 16:00:15,125 - INFO - Failed: 1
@@ -329,7 +399,16 @@ The import script handles resource ID mapping between source and target instance
 ```
 2024-01-15 16:00:11,345 - WARNING - User mapping for quick connect not fully implemented
 ```
-**Solution**: Ensure users and queues exist in target instance with same IDs, or manually map resources
+**Solutions**: 
+- **For cross-region**: Use `--skip-mapping` to avoid mapping altogether
+- **For same-region**: Ensure users and queues exist in target instance with same IDs, or manually map resources
+
+**Slow Import Performance**
+```
+2024-01-15 16:00:05,678 - INFO - Fetching existing users for quick connect mapping...
+2024-01-15 16:02:30,123 - INFO - Found 2000 users and 500 queues
+```
+**Solution**: Use `--skip-mapping` for faster imports when resource mapping isn't needed
 
 **Duplicate Quick Connects**
 ```

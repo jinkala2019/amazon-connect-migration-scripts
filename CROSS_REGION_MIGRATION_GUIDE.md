@@ -302,8 +302,8 @@ python connect_user_import.py --instance-id target-eu-west-1 --region eu-west-1 
 python connect_queue_import.py --instance-id target-eu-west-1 --region eu-west-1 --export-file queues_export.json --dry-run
 python connect_queue_import.py --instance-id target-eu-west-1 --region eu-west-1 --export-file queues_export.json
 
-python connect_quick_connect_import.py --instance-id target-eu-west-1 --region eu-west-1 --export-file quick_connects_export.json --dry-run
-python connect_quick_connect_import.py --instance-id target-eu-west-1 --region eu-west-1 --export-file quick_connects_export.json
+python connect_quick_connect_import.py --instance-id target-eu-west-1 --region eu-west-1 --export-file quick_connects_export.json --skip-mapping --dry-run
+python connect_quick_connect_import.py --instance-id target-eu-west-1 --region eu-west-1 --export-file quick_connects_export.json --skip-mapping
 ```
 
 Cross-region migration is fully supported and reliable when following this systematic approach! 🌍

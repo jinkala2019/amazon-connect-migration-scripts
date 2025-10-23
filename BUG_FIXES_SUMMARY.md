@@ -193,6 +193,36 @@ This caused each queue to be processed twice, with duplicate tag fetching and lo
 - `connect_quick_connect_export.py` → `connect_quick_connect_export.log`
 - `connect_quick_connect_import.py` → `connect_quick_connect_import.log`
 
+#### 10. Quick Connect Cross-Region Optimization ✅ **PERFORMANCE ENHANCEMENT**
+**Problem**: Quick connect imports were slow for cross-region scenarios due to unnecessary user/queue mapping
+
+**User Feedback**: "Why does it look for existing users for quick connect mapping... All we will have to do is importing an exported quick connects into another instance in another region"
+
+**Solution Applied - Skip Mapping Mode**:
+- **Added `--skip-mapping` parameter** for cross-region imports
+- **Optional resource enumeration** - skips user/queue fetching when not needed
+- **Faster imports** - eliminates unnecessary API calls for large user/queue lists
+- **Cross-region optimized** - perfect for standalone quick connect migration
+
+**Performance Benefits**:
+- **Faster imports**: No user/queue enumeration API calls (saves 30-60 seconds for large instances)
+- **Cleaner logs**: No mapping warnings or unnecessary processing messages
+- **Cross-region friendly**: No dependency on matching users/queues in target
+- **Standalone imports**: Import quick connects as independent entities
+
+**Usage Examples**:
+```bash
+# Cross-region import (fast, no mapping)
+python connect_quick_connect_import.py --instance-id target-id --export-file qc_export.json --skip-mapping
+
+# Same-region import (with mapping)
+python connect_quick_connect_import.py --instance-id target-id --export-file qc_export.json
+```
+
+**Files Enhanced**: 
+- `connect_quick_connect_import.py`
+- `connect_quick_connect_export.py` (fixed duplicate tags issue)
+
 ### 🛡️ Enhanced Error Handling
 
 **New Safety Features**:

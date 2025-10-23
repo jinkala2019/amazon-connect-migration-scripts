@@ -18,7 +18,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('connect_import.log'),
+        logging.FileHandler('connect_import.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -37,11 +37,11 @@ def log_run_separator(script_name: str, action: str = "START"):
     
     if action == "START":
         logger.info(separator)
-        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(f">> {script_name} - RUN STARTED at {timestamp}")
         logger.info(separator)
     elif action == "END":
         logger.info(separator)
-        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(f"<< {script_name} - RUN COMPLETED at {timestamp}")
         logger.info(separator)
         logger.info("")  # Empty line for visual separation
 

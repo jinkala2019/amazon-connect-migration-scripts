@@ -411,6 +411,7 @@ python connect_user_import.py --batch-size 100 --export-file users.json --dry-ru
 | **BadRequestException on queue tags** | Inconsistent ARN field names between API calls | ✅ **FIXED**: Improved ARN handling with fallback mechanisms |
 | **SecurityProfileName errors in import** | Direct dictionary access without safe .get() method | ✅ **FIXED**: Enhanced security profile name field handling |
 | **Agent queue ARN warnings** | Queue export including both standard and agent queues | ✅ **FIXED**: Limited export to STANDARD queues only |
+| **Slow quick connect imports** | Unnecessary user/queue mapping for cross-region | ✅ **ENHANCED**: Added `--skip-mapping` for faster cross-region imports |
 
 ### Diagnostic Commands
 

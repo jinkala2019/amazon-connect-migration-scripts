@@ -11,16 +11,37 @@ from datetime import datetime
 from typing import Dict, List, Set
 from botocore.exceptions import ClientError
 
-# Configure logging
+# Configure logging with UTF-8 encoding
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('security_profile_helper.log'),
+        logging.FileHandler('security_profile_helper.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
+
+def log_run_separator(script_name: str, action: str = "START"):
+    """
+    Log a clear separator for run identification (Windows-compatible)
+    
+    Args:
+        script_name: Name of the script
+        action: START or END
+    """
+    separator = "=" * 80
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    if action == "START":
+        logger.info(separator)
+        logger.info(f">> {script_name} - RUN STARTED at {timestamp}")
+        logger.info(separator)
+    elif action == "END":
+        logger.info(separator)
+        logger.info(f"<< {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(separator)
+        logger.info("")  # Empty line for visual separation
 
 class SecurityProfileHelper:
     def __init__(self, region: str = 'us-east-1', profile: str = None):
@@ -49,6 +70,8 @@ class SecurityProfileHelper:
         Returns:
             Analysis results
         """
+        log_run_separator("SECURITY PROFILE ANALYSIS", "START")
+        
         try:
             with open(export_file, 'r', encoding='utf-8') as f:
                 export_data = json.load(f)
@@ -78,11 +101,14 @@ class SecurityProfileHelper:
             for profile_name, users_list in profile_usage.items():
                 logger.info(f"  '{profile_name}': used by {len(users_list)} users")
             
-            return {
+            result = {
                 'required_profiles': required_profiles,
                 'profile_usage': profile_usage,
                 'total_users': len(users)
             }
+            
+            log_run_separator("SECURITY PROFILE ANALYSIS", "END")
+            return result
             
         except Exception as e:
             logger.error(f"Error analyzing export file: {e}")
@@ -129,6 +155,8 @@ class SecurityProfileHelper:
         Returns:
             Comparison results
         """
+        log_run_separator("SECURITY PROFILE COMPARISON", "START")
+        
         analysis = self.analyze_export_file(export_file)
         existing_profiles = self.get_existing_security_profiles(target_instance_id)
         
@@ -157,6 +185,7 @@ class SecurityProfileHelper:
                 users_count = len(analysis['profile_usage'].get(profile_name, []))
                 logger.warning(f"  - '{profile_name}' (needed by {users_count} users)")
         
+        log_run_separator("SECURITY PROFILE COMPARISON", "END")
         return comparison
     
     def generate_security_profile_commands(self, export_file: str, target_instance_id: str) -> List[str]:
@@ -203,6 +232,8 @@ class SecurityProfileHelper:
             target_instance_id: Target instance ID
             output_file: Output script file path
         """
+        log_run_separator("SECURITY PROFILE SCRIPT CREATION", "START")
+        
         if not output_file:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_file = f"create_security_profiles_{timestamp}.sh"
@@ -211,6 +242,7 @@ class SecurityProfileHelper:
         
         if not commands:
             logger.info("No script needed - all security profiles exist!")
+            log_run_separator("SECURITY PROFILE SCRIPT CREATION", "END")
             return
         
         script_content = f"""#!/bin/bash
@@ -246,6 +278,8 @@ echo "Note: You may need to configure specific permissions for each profile in t
         
         logger.info(f"Created script: {output_file}")
         logger.info(f"Run: chmod +x {output_file} && ./{output_file}")
+        
+        log_run_separator("SECURITY PROFILE SCRIPT CREATION", "END")
 
 def main():
     """Main function for command line usage"""

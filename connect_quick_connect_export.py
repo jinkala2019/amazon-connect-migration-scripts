@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('connect_quick_connect_export.log'),
+        logging.FileHandler('connect_quick_connect_export.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -36,11 +36,11 @@ def log_run_separator(script_name: str, action: str = "START"):
     
     if action == "START":
         logger.info(separator)
-        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(f">> {script_name} - RUN STARTED at {timestamp}")
         logger.info(separator)
     elif action == "END":
         logger.info(separator)
-        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(f"<< {script_name} - RUN COMPLETED at {timestamp}")
         logger.info(separator)
         logger.info("")  # Empty line for visual separation
 
@@ -130,15 +130,19 @@ class ConnectQuickConnectExporter:
             
             quick_connect_data = response['QuickConnect']
             
-            # Get tags for the quick connect
+            # Get tags for the quick connect (avoid duplication if already in quick_connect_data)
             tags = {}
-            try:
-                tags_response = self.connect_client.list_tags_for_resource(
-                    resourceArn=quick_connect_data['QuickConnectARN']
-                )
-                tags = tags_response.get('tags', {})
-            except ClientError as e:
-                logger.warning(f"Could not fetch tags for quick connect {quick_connect_id}: {e}")
+            if 'Tags' not in quick_connect_data:
+                try:
+                    tags_response = self.connect_client.list_tags_for_resource(
+                        resourceArn=quick_connect_data['QuickConnectARN']
+                    )
+                    tags = tags_response.get('tags', {})
+                except ClientError as e:
+                    logger.warning(f"Could not fetch tags for quick connect {quick_connect_id}: {e}")
+            else:
+                logger.debug(f"Quick connect {quick_connect_id} already has tags in API response")
+                tags = quick_connect_data.get('Tags', {})
             
             # Compile complete quick connect profile
             complete_profile = {

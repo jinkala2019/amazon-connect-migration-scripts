@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('connect_quick_connect_import.log'),
+        logging.FileHandler('connect_quick_connect_import.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -36,11 +36,11 @@ def log_run_separator(script_name: str, action: str = "START"):
     
     if action == "START":
         logger.info(separator)
-        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(f">> {script_name} - RUN STARTED at {timestamp}")
         logger.info(separator)
     elif action == "END":
         logger.info(separator)
-        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(f"<< {script_name} - RUN COMPLETED at {timestamp}")
         logger.info(separator)
         logger.info("")  # Empty line for visual separation
 
@@ -115,9 +115,12 @@ class ConnectQuickConnectImporter:
             logger.error(f"Error fetching existing quick connects: {e}")
             raise
     
-    def get_existing_resources(self) -> Dict:
+    def get_existing_resources(self, skip_mapping: bool = False) -> Dict:
         """
         Get existing resources (users, queues) for quick connect mapping
+        
+        Args:
+            skip_mapping: If True, skip user/queue mapping (for cross-region imports)
         
         Returns:
             Dictionary of existing resources
@@ -126,6 +129,10 @@ class ConnectQuickConnectImporter:
             'users': {},
             'queues': {}
         }
+        
+        if skip_mapping:
+            logger.info("Skipping user/queue mapping - importing quick connects as standalone entities")
+            return resources
         
         try:
             # Get users
@@ -149,18 +156,23 @@ class ConnectQuickConnectImporter:
             logger.error(f"Error fetching existing resources: {e}")
             raise
     
-    def map_quick_connect_config(self, qc_config: Dict, existing_resources: Dict) -> Dict:
+    def map_quick_connect_config(self, qc_config: Dict, existing_resources: Dict, skip_mapping: bool = False) -> Dict:
         """
         Map quick connect configuration to target instance resources
         
         Args:
             qc_config: Quick connect configuration
             existing_resources: Existing resources in target instance
+            skip_mapping: If True, skip mapping and use original IDs
             
         Returns:
             Mapped quick connect configuration
         """
         mapped_config = qc_config.copy()
+        
+        if skip_mapping:
+            logger.debug(f"Skipping mapping for {qc_config['QuickConnectType']} quick connect - using original configuration")
+            return mapped_config
         
         if qc_config['QuickConnectType'] == 'USER':
             # Map user ID
@@ -182,13 +194,14 @@ class ConnectQuickConnectImporter:
         
         return mapped_config
     
-    def create_quick_connect(self, qc_data: Dict, existing_resources: Dict) -> bool:
+    def create_quick_connect(self, qc_data: Dict, existing_resources: Dict, skip_mapping: bool = False) -> bool:
         """
         Create a single quick connect in the target instance
         
         Args:
             qc_data: Complete quick connect data from export
             existing_resources: Existing resources for mapping
+            skip_mapping: If True, skip user/queue mapping
             
         Returns:
             True if successful, False otherwise
@@ -202,7 +215,7 @@ class ConnectQuickConnectImporter:
         
         try:
             # Map quick connect configuration
-            mapped_config = self.map_quick_connect_config(qc_info['QuickConnectConfig'], existing_resources)
+            mapped_config = self.map_quick_connect_config(qc_info['QuickConnectConfig'], existing_resources, skip_mapping)
             
             # Prepare quick connect creation parameters
             create_params = {
@@ -235,13 +248,14 @@ class ConnectQuickConnectImporter:
             logger.error(f"Unexpected error creating quick connect {qc_name}: {e}")
             return False
     
-    def import_quick_connects(self, export_file: str, dry_run: bool = False) -> Dict:
+    def import_quick_connects(self, export_file: str, dry_run: bool = False, skip_mapping: bool = False) -> Dict:
         """
         Import quick connects from export file
         
         Args:
             export_file: Path to the export file
             dry_run: If True, only validate without creating quick connects
+            skip_mapping: If True, skip user/queue mapping (for cross-region imports)
             
         Returns:
             Import results summary
@@ -249,7 +263,10 @@ class ConnectQuickConnectImporter:
         # Log run start
         log_run_separator("QUICK CONNECT IMPORT", "START")
         
-        logger.info(f"Starting quick connect import process (dry_run={dry_run})...")
+        if skip_mapping:
+            logger.info(f"Starting quick connect import process (dry_run={dry_run}, cross-region mode - no mapping)...")
+        else:
+            logger.info(f"Starting quick connect import process (dry_run={dry_run}, with user/queue mapping)...")
         
         # Load export data
         export_data = self.load_export_data(export_file)
@@ -262,7 +279,7 @@ class ConnectQuickConnectImporter:
         
         # Get existing resources for mapping
         existing_qcs = self.get_existing_quick_connects()
-        existing_resources = self.get_existing_resources()
+        existing_resources = self.get_existing_resources(skip_mapping)
         
         # Import statistics
         results = {
@@ -296,7 +313,7 @@ class ConnectQuickConnectImporter:
                     results['success'] += 1
                 else:
                     # Actually create the quick connect
-                    if self.create_quick_connect(qc_data, existing_resources):
+                    if self.create_quick_connect(qc_data, existing_resources, skip_mapping):
                         results['success'] += 1
                     else:
                         results['failed'] += 1
@@ -336,6 +353,7 @@ def main():
     parser.add_argument('--region', default='us-east-1', help='AWS region')
     parser.add_argument('--profile', help='AWS profile name')
     parser.add_argument('--dry-run', action='store_true', help='Validate without creating quick connects')
+    parser.add_argument('--skip-mapping', action='store_true', help='Skip user/queue mapping (for cross-region imports)')
     
     args = parser.parse_args()
     
@@ -348,7 +366,8 @@ def main():
         
         results = importer.import_quick_connects(
             export_file=args.export_file,
-            dry_run=args.dry_run
+            dry_run=args.dry_run,
+            skip_mapping=args.skip_mapping
         )
         
         print(f"Import completed - Success: {results['success']}, Failed: {results['failed']}, Skipped: {results['skipped']}")

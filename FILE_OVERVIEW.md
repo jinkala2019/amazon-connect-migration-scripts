@@ -35,11 +35,14 @@
 #### `connect_quick_connect_import.py` - **Quick Connect Import Script**
 - **Purpose**: Imports quick connects into target instance
 - **Features**:
-  - Resource mapping between instances
+  - Resource mapping between instances (optional)
+  - Cross-region optimization with `--skip-mapping` flag
   - Conflict resolution for existing quick connects
   - Tag preservation during import
   - ✅ **Enhanced**: Fixed 'Name' field access errors and improved data validation
-- **Usage**: `python connect_quick_connect_import.py --instance-id target-id --export-file qc_export.json`
+- **Usage**: 
+  - Same-region: `python connect_quick_connect_import.py --instance-id target-id --export-file qc_export.json`
+  - Cross-region: `python connect_quick_connect_import.py --instance-id target-id --export-file qc_export.json --skip-mapping`
 
 ### Queue Migration with BU Tag Filtering
 #### `connect_queue_export.py` - **Queue Export Script with BU Filtering**
