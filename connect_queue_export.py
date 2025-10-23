@@ -292,7 +292,8 @@ class ConnectQueueExporter:
                 output_file = f"connect_queues_export_{self.instance_id}_{self.bu_tag_value}_{timestamp}.json"
         
         if self.queue_prefix:
-            logger.info(f"Starting queue export process for BU tag: {self.bu_tag_value}, Queue prefix: {self.queue_prefix} (standard queues only)...")
+            logger.info(f"Starting optimized queue export for BU tag: {self.bu_tag_value}, Queue prefix: {self.queue_prefix} (standard queues only)...")
+            logger.info("Optimization: BU tag filtering first, then name prefix filtering for maximum performance")
         else:
             logger.info(f"Starting queue export process for BU tag: {self.bu_tag_value} (all standard queues)...")
         
@@ -303,23 +304,17 @@ class ConnectQueueExporter:
             logger.warning("No queues found to export")
             return output_file
         
-        # Process queues: filter by BU tag and export matching ones
-        exported_queues = []
-        failed_exports = []
-        matching_count = 0
+        # Optimized two-pass approach: Find BU-tagged queues first, then filter by name
+        logger.info("Phase 1: Identifying queues with matching BU tags...")
+        bu_matching_queues = []
         
+        # First pass: Find all queues with matching BU tags
         for i, queue_summary in enumerate(all_queues, 1):
             queue_id = queue_summary['Id']
             queue_name = queue_summary.get('Name', 'Unknown')
             
             try:
-                # First check if queue name matches prefix filter (quick check)
-                if not self.queue_matches_name_prefix(queue_name):
-                    logger.debug(f"Queue does not match name prefix: {queue_name}")
-                    continue
-                
-                # Get queue tags to check BU tag (only for queues that pass name filter)
-                # Try multiple ARN field names for compatibility
+                # Get queue ARN for tag checking
                 queue_arn = queue_summary.get('Arn') or queue_summary.get('QueueArn')
                 
                 if not queue_arn:
@@ -331,19 +326,45 @@ class ConnectQueueExporter:
                         )
                         queue_arn = queue_detail['Queue'].get('QueueArn') or queue_detail['Queue'].get('Arn')
                     except ClientError as e:
-                        logger.warning(f"Could not get queue details for {queue_name} ({queue_id}): {e}")
+                        logger.debug(f"Could not get queue details for {queue_name}: {e}")
                         continue
                 
-                # Get tags only if we have a valid ARN
+                # Get tags and check BU match
                 if queue_arn:
                     queue_tags = self.get_queue_tags(queue_arn)
-                else:
-                    logger.warning(f"No valid ARN found for queue {queue_name} ({queue_id}), skipping")
-                    continue
+                    if self.queue_matches_bu_tag(queue_tags):
+                        bu_matching_queues.append({
+                            'summary': queue_summary,
+                            'tags': queue_tags,
+                            'arn': queue_arn
+                        })
+                        logger.debug(f"Queue matches BU tag '{self.bu_tag_value}': {queue_name}")
                 
-                # Check if queue matches BU tag filter
-                if not self.queue_matches_bu_tag(queue_tags):
-                    logger.debug(f"Queue does not match BU tag: {queue_name} (tags: {queue_tags})")
+                # Progress indicator for large datasets
+                if i % 100 == 0:
+                    logger.info(f"Processed {i}/{len(all_queues)} queues for BU tag matching...")
+                    
+            except Exception as e:
+                logger.debug(f"Error checking BU tag for queue {queue_name}: {e}")
+        
+        logger.info(f"Phase 1 complete: Found {len(bu_matching_queues)} queues with BU tag '{self.bu_tag_value}'")
+        
+        # Second pass: Apply name prefix filter and export
+        logger.info("Phase 2: Applying name prefix filter and exporting...")
+        exported_queues = []
+        failed_exports = []
+        matching_count = 0
+        
+        for queue_data in bu_matching_queues:
+            queue_summary = queue_data['summary']
+            queue_tags = queue_data['tags']
+            queue_id = queue_summary['Id']
+            queue_name = queue_summary.get('Name', 'Unknown')
+            
+            try:
+                # Apply name prefix filter (fast string operation)
+                if not self.queue_matches_name_prefix(queue_name):
+                    logger.debug(f"Queue matches BU but not prefix: {queue_name}")
                     continue
                 
                 # Queue matches all filters - export it
@@ -361,7 +382,7 @@ class ConnectQueueExporter:
                     time.sleep(1)
                     
             except Exception as e:
-                logger.error(f"Failed to process queue {queue_name} ({queue_id}): {e}")
+                logger.error(f"Failed to export queue {queue_name} ({queue_id}): {e}")
                 failed_exports.append({
                     'QueueId': queue_id,
                     'Name': queue_name,

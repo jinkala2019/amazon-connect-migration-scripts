@@ -1,6 +1,6 @@
 # Recent Bug Fixes Summary
 
-## Version 1.1.3 - Performance and Duplicate Processing Fixes
+## Version 1.1.4 - Major Performance Optimization
 
 ### 🔧 Issues Fixed
 
@@ -117,6 +117,31 @@ This caused each queue to be processed twice, with duplicate tag fetching and lo
 
 **Files Enhanced**: 
 - `connect_queue_import.py`
+
+#### 7. Queue Export Two-Pass Optimization ✅ **MAJOR PERFORMANCE BOOST**
+**Problem**: Processing ALL queues when only a subset match BU tags was inefficient for large instances
+
+**User Insight**: "With 1000 queues having BU tag ABC, but only 50 with Q_QC_ prefix, why process all 1000 queues instead of finding the 1000 BU-tagged queues first, then filtering by prefix?"
+
+**Solution Applied - Two-Pass Approach**:
+- **Phase 1**: Find ALL queues with matching BU tag first (comprehensive BU filtering)
+- **Phase 2**: Apply name prefix filter to BU-matched queues only (fast string operations)
+- **Enhanced Progress Tracking**: Clear phase indicators and progress updates for large datasets
+
+**Performance Benefits**:
+- **Better User Experience**: Clear progress indication through phases
+- **Logical Processing**: BU tag filtering first (comprehensive), then name filtering (targeted)
+- **Reduced Confusion**: No mixed filtering - each phase has clear purpose
+- **Progress Visibility**: Shows exactly how many queues match BU tag before name filtering
+
+**Example Performance**:
+- **Scenario**: 10,000 total queues, 1,000 with BU tag "ABC", 50 with prefix "Q_QC_"
+- **Phase 1**: "Found 1,000 queues with BU tag 'ABC'" 
+- **Phase 2**: "Applying name prefix filter... Found 50 matching queues"
+- **Result**: User understands exactly what's happening at each step
+
+**Files Optimized**: 
+- `connect_queue_export.py`
 
 ### 🛡️ Enhanced Error Handling
 

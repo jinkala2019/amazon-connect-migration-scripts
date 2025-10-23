@@ -5,6 +5,14 @@ All notable changes to the Amazon Connect Migration Scripts project will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2024-01-16
+
+### Performance Optimization
+- **Queue Export Two-Pass Approach**: Implemented BU tag filtering first, then name prefix filtering for optimal performance
+- **Enhanced Progress Tracking**: Added phase-based progress indicators for large dataset processing
+- **Logical Processing Flow**: Clear separation of BU tag discovery and name prefix filtering phases
+- **Better User Experience**: Users can see exactly how many queues match BU tags before name filtering begins
+
 ## [1.1.3] - 2024-01-16
 
 ### Fixed
