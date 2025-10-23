@@ -23,6 +23,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def log_run_separator(script_name: str, action: str = "START"):
+    """
+    Log a clear separator for run identification
+    
+    Args:
+        script_name: Name of the script
+        action: START or END
+    """
+    separator = "=" * 80
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    if action == "START":
+        logger.info(separator)
+        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(separator)
+    elif action == "END":
+        logger.info(separator)
+        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(separator)
+        logger.info("")  # Empty line for visual separation
+
 class ConnectQuickConnectExporter:
     def __init__(self, instance_id: str, region: str = 'us-east-1', profile: Optional[str] = None):
         """
@@ -145,6 +166,9 @@ class ConnectQuickConnectExporter:
         Returns:
             Path to the exported file
         """
+        # Log run start
+        log_run_separator("QUICK CONNECT EXPORT", "START")
+        
         if not output_file:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_file = f"connect_quick_connects_export_{self.instance_id}_{timestamp}.json"
@@ -156,6 +180,7 @@ class ConnectQuickConnectExporter:
         
         if not quick_connects:
             logger.warning("No quick connects found to export")
+            log_run_separator("QUICK CONNECT EXPORT", "END")
             return output_file
         
         exported_quick_connects = []
@@ -202,6 +227,9 @@ class ConnectQuickConnectExporter:
             logger.info(f"Export completed successfully!")
             logger.info(f"Exported {len(exported_quick_connects)} quick connects to {output_file}")
             logger.info(f"Failed exports: {len(failed_exports)}")
+            
+            # Log run end
+            log_run_separator("QUICK CONNECT EXPORT", "END")
             
             return output_file
             

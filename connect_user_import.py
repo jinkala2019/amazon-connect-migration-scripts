@@ -24,6 +24,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def log_run_separator(script_name: str, action: str = "START"):
+    """
+    Log a clear separator for run identification
+    
+    Args:
+        script_name: Name of the script
+        action: START or END
+    """
+    separator = "=" * 80
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    if action == "START":
+        logger.info(separator)
+        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(separator)
+    elif action == "END":
+        logger.info(separator)
+        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(separator)
+        logger.info("")  # Empty line for visual separation
+
 class ConnectUserImporter:
     def __init__(self, instance_id: str, region: str = 'us-east-1', profile: Optional[str] = None):
         """
@@ -394,6 +415,9 @@ class ConnectUserImporter:
         Returns:
             Import results summary
         """
+        # Log run start
+        log_run_separator("USER IMPORT", "START")
+        
         logger.info(f"Starting user import process (dry_run={dry_run})...")
         
         # Load export data
@@ -402,6 +426,7 @@ class ConnectUserImporter:
         
         if not users_to_import:
             logger.warning("No users found in export file")
+            log_run_separator("USER IMPORT", "END")
             return {'success': 0, 'failed': 0, 'skipped': 0}
         
         # Get existing resources for mapping
@@ -484,6 +509,9 @@ class ConnectUserImporter:
             logger.info(f"Failed users: {', '.join(results['failed_users'][:10])}")
             if len(results['failed_users']) > 10:
                 logger.info(f"... and {len(results['failed_users']) - 10} more")
+        
+        # Log run end
+        log_run_separator("USER IMPORT", "END")
         
         return results
 

@@ -23,6 +23,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def log_run_separator(script_name: str, action: str = "START"):
+    """
+    Log a clear separator for run identification
+    
+    Args:
+        script_name: Name of the script
+        action: START or END
+    """
+    separator = "=" * 80
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    if action == "START":
+        logger.info(separator)
+        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(separator)
+    elif action == "END":
+        logger.info(separator)
+        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(separator)
+        logger.info("")  # Empty line for visual separation
+
 class ConnectQueueImporter:
     def __init__(self, instance_id: str, region: str = 'us-east-1', profile: Optional[str] = None, phone_number_mapping: Optional[Dict[str, str]] = None):
         """
@@ -406,6 +427,9 @@ class ConnectQueueImporter:
         Returns:
             Import results summary
         """
+        # Log run start
+        log_run_separator("QUEUE IMPORT", "START")
+        
         logger.info(f"Starting queue import process (dry_run={dry_run})...")
         
         # Load phone number mapping if provided
@@ -441,6 +465,7 @@ class ConnectQueueImporter:
         
         if not queues_to_import:
             logger.warning("No queues found in export file")
+            log_run_separator("QUEUE IMPORT", "END")
             return {'success': 0, 'failed': 0, 'skipped': 0}
         
         # Get existing resources for mapping
@@ -498,6 +523,9 @@ class ConnectQueueImporter:
             logger.warning(f"Failed queue names: {', '.join(results['failed_queues'][:10])}")
             if len(results['failed_queues']) > 10:
                 logger.warning(f"... and {len(results['failed_queues']) - 10} more failed queues")
+        
+        # Log run end
+        log_run_separator("QUEUE IMPORT", "END")
         
         return results
 

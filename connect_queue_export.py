@@ -23,6 +23,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def log_run_separator(script_name: str, action: str = "START"):
+    """
+    Log a clear separator for run identification
+    
+    Args:
+        script_name: Name of the script
+        action: START or END
+    """
+    separator = "=" * 80
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    if action == "START":
+        logger.info(separator)
+        logger.info(f"🚀 {script_name} - RUN STARTED at {timestamp}")
+        logger.info(separator)
+    elif action == "END":
+        logger.info(separator)
+        logger.info(f"✅ {script_name} - RUN COMPLETED at {timestamp}")
+        logger.info(separator)
+        logger.info("")  # Empty line for visual separation
+
 class ConnectQueueExporter:
     def __init__(self, instance_id: str, bu_tag_value: str, region: str = 'us-east-1', profile: Optional[str] = None, queue_prefix: Optional[str] = None):
         """
@@ -359,6 +380,9 @@ class ConnectQueueExporter:
             else:
                 output_file = f"connect_queues_export_{self.instance_id}_{self.bu_tag_value}_{timestamp}.json"
         
+        # Log run start
+        log_run_separator("QUEUE EXPORT", "START")
+        
         if self.queue_prefix:
             logger.info(f"Starting cache-optimized queue export for BU tag: {self.bu_tag_value}, Queue prefix: {self.queue_prefix} (standard queues only)...")
             logger.info("Performance Optimization: Building metadata cache first, then applying filters locally for maximum speed")
@@ -372,6 +396,7 @@ class ConnectQueueExporter:
         
         if not queue_cache:
             logger.warning("No queues found to export")
+            log_run_separator("QUEUE EXPORT", "END")
             return output_file
         
         logger.info(f"Cache built: {len(queue_cache)} queues with metadata loaded")
@@ -459,12 +484,15 @@ class ConnectQueueExporter:
                 json.dump(export_data, f, indent=2, default=str)
             
             logger.info(f"Export completed successfully!")
-            logger.info(f"Scanned {len(all_queues)} total standard queues")
+            logger.info(f"Scanned {len(queue_cache)} total standard queues")
             logger.info(f"Successfully exported {len(exported_queues)} queues to {output_file}")
             if len(failed_exports) > 0:
                 logger.warning(f"Failed exports: {len(failed_exports)}")
             else:
                 logger.info("No export failures")
+            
+            # Log run end
+            log_run_separator("QUEUE EXPORT", "END")
             
             return output_file
             

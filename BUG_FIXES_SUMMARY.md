@@ -59,6 +59,7 @@ ERROR - Import failed: 'SecurityProfileName'
 
 **Files Fixed**: 
 - `connect_user_import.py`
+- `security_profile_helper.py` (same issue fixed)
 
 #### 4. Queue Export Including Agent Queues ✅ **FIXED**
 **Problem**: Queue export was fetching both STANDARD and AGENT queues, causing ARN format warnings for agent queues
@@ -167,6 +168,31 @@ This caused each queue to be processed twice, with duplicate tag fetching and lo
 **Files Revolutionized**: 
 - `connect_queue_export.py`
 
+#### 9. Enhanced Logging with Run Separators ✅ **MAJOR UX IMPROVEMENT**
+**Problem**: Log files append multiple runs making it difficult to identify where each run starts and ends
+
+**User Request**: "Add separation for each run... makes it difficult to look and identify where the recent run started"
+
+**Solution Applied - Visual Run Separators**:
+- **Clear Start Markers**: 80-character separator lines with timestamps and 🚀 emoji
+- **Clear End Markers**: 80-character separator lines with timestamps and ✅ emoji  
+- **Visual Separation**: Empty lines between runs for easy navigation
+- **Consistent Format**: Same pattern across all migration scripts
+
+**Enhanced User Experience**:
+- **Easy Navigation**: Jump directly to specific run start/end in log files
+- **Time Tracking**: See exact start/end times for performance analysis
+- **Debug Friendly**: Quickly isolate issues to specific runs
+- **Professional Logging**: Enterprise-grade log formatting
+
+**Files Enhanced with Run Separators**:
+- `connect_user_export.py` → `connect_export.log`
+- `connect_user_import.py` → `connect_import.log`
+- `connect_queue_export.py` → `connect_queue_export.log`
+- `connect_queue_import.py` → `connect_queue_import.log`
+- `connect_quick_connect_export.py` → `connect_quick_connect_export.log`
+- `connect_quick_connect_import.py` → `connect_quick_connect_import.log`
+
 ### 🛡️ Enhanced Error Handling
 
 **New Safety Features**:
@@ -247,6 +273,27 @@ INFO - Successfully created queue: Sales Priority Queue
 INFO - Queue import process completed!
 INFO - Successfully imported: 15 queues
 INFO - Skipped (already exist): 0 queues
+```
+
+**Enhanced Logging Format** (all scripts now have run separators):
+```
+INFO - ================================================================================
+INFO - 🚀 QUEUE EXPORT - RUN STARTED at 2024-01-16 14:30:15
+INFO - ================================================================================
+INFO - Starting cache-optimized queue export for BU tag: Sales, Queue prefix: Q_QC_...
+INFO - Performance Optimization: Building metadata cache first...
+INFO - Found 200 queues matching BU tag 'Sales' and prefix 'Q_QC_'
+INFO - Export completed successfully!
+INFO - Successfully exported 200 queues to connect_queues_export_abc123_Sales_QQC_20240116_143025.json
+INFO - ================================================================================
+INFO - ✅ QUEUE EXPORT - RUN COMPLETED at 2024-01-16 14:33:22
+INFO - ================================================================================
+INFO - 
+
+INFO - ================================================================================
+INFO - 🚀 QUEUE IMPORT - RUN STARTED at 2024-01-16 15:00:10
+INFO - ================================================================================
+INFO - Starting queue import process (dry_run=False)...
 ```
 
 **Queue ARN Issues** (now rare due to standard queue filtering):

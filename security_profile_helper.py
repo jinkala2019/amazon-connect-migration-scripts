@@ -104,7 +104,12 @@ class SecurityProfileHelper:
             paginator = self.connect_client.get_paginator('list_security_profiles')
             for page in paginator.paginate(InstanceId=instance_id):
                 for profile in page.get('SecurityProfileSummaryList', []):
-                    existing_profiles[profile['SecurityProfileName']] = profile['Id']
+                    # Handle different possible field names for security profile name
+                    profile_name = profile.get('SecurityProfileName') or profile.get('Name')
+                    if profile_name:
+                        existing_profiles[profile_name] = profile['Id']
+                    else:
+                        logger.warning(f"Security profile missing name field in target instance: {profile}")
             
             logger.info(f"Found {len(existing_profiles)} existing security profiles in target instance")
             return existing_profiles

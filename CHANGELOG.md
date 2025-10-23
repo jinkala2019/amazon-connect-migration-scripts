@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Batch API Optimization**: All tag fetching done in single pass, then local filtering
 - **Real-World Impact**: User scenario (1600→600→200 queues) now processes in ~2-3 minutes vs 10+ minutes
 
+### Enhanced Logging
+- **Run Separators**: Added clear start/end markers for all script runs across all log files
+- **Visual Identification**: 80-character separators with timestamps and emojis for easy navigation
+- **Debugging Improvement**: Easy identification of individual runs in appended log files
+- **Complete Coverage**: User export/import, queue export/import, quick connect export/import
+
+### Fixed
+- **Security Profile Helper**: Fixed SecurityProfileName KeyError in target instance enumeration (same issue as user import)
+
 ## [1.1.4] - 2024-01-16
 
 ### Performance Optimization
