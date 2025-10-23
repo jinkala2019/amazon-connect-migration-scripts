@@ -34,13 +34,21 @@ python connect_user_export.py --instance-id source-instance-id --region us-east-
 - [ ] Validate export file structure
 
 ### Phase 2: Pre-Import Validation
-- [ ] Run dry-run import to identify issues
+- [ ] Analyze security profile requirements (especially for cross-region)
+```bash
+python security_profile_helper.py --action compare --export-file users_export.json --target-instance target-instance-id
+```
+- [ ] Create missing security profiles if needed
+```bash
+python security_profile_helper.py --action create-script --export-file users_export.json --target-instance target-instance-id
+./create_security_profiles_*.sh
+```
+- [ ] Run dry-run import to identify remaining issues
 ```bash
 python connect_user_import.py --instance-id target-instance-id --export-file users_export.json --dry-run
 ```
 - [ ] Review dry-run results for mapping issues
 - [ ] Create missing queues in target instance if needed
-- [ ] Create missing security profiles manually if needed
 - [ ] Resolve any dependency issues identified
 
 ### Phase 3: Performance Optimization

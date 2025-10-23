@@ -59,7 +59,8 @@ def check_scripts():
         'connect_queue_import.py',
         'connect_quick_connect_export.py',
         'connect_quick_connect_import.py',
-        'connect_phone_number_mapper.py'
+        'connect_phone_number_mapper.py',
+        'security_profile_helper.py'
     ]
     
     all_present = True
@@ -78,7 +79,8 @@ def check_documentation():
         'README.md',
         'QUICK_CONNECT_MIGRATION_GUIDE.md',
         'QUEUE_MIGRATION_GUIDE.md',
-        'SIMPLE_PHONE_MAPPING_GUIDE.md'
+        'SIMPLE_PHONE_MAPPING_GUIDE.md',
+        'CROSS_REGION_MIGRATION_GUIDE.md'
     ]
     
     all_present = True

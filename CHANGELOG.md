@@ -5,6 +5,44 @@ All notable changes to the Amazon Connect Migration Scripts project will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2024-01-16
+
+### Added
+- **Security Profile Helper**
+  - `security_profile_helper.py` - Analyze and create missing security profiles
+  - Cross-region security profile comparison and creation
+  - AWS CLI command generation for missing profiles
+  - Integration with user import workflow
+
+- **Enhanced Queue Export**
+  - Queue name prefix filtering (`--queue-prefix` parameter)
+  - Dual filtering: BU tag AND queue name prefix
+  - Enhanced logging for filtering results
+
+- **Cross-Region Migration Support**
+  - Phone number mapping utilities for cross-region migrations
+  - `connect_phone_number_mapper.py` - Create and validate phone number mappings
+  - Template generation for phone number ID mappings
+  - Enhanced documentation for cross-region workflows
+
+- **Enhanced Example Usage**
+  - `example_usage.py` updated with 10 comprehensive examples
+  - Cross-region migration workflow examples
+  - Security profile analysis and creation examples
+  - Queue prefix filtering examples
+  - Phone number mapping examples
+
+### Enhanced
+- **User Import Script**
+  - Automatic security profile analysis during import
+  - Enhanced error handling for missing security profiles
+  - Cross-region compatibility improvements
+
+- **Documentation**
+  - `CROSS_REGION_MIGRATION_GUIDE.md` - Comprehensive cross-region guide
+  - Updated all documentation for new features
+  - Enhanced troubleshooting sections
+
 ## [1.0.0] - 2024-01-15
 
 ### Added

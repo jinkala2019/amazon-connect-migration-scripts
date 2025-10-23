@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """
-Example usage of Amazon Connect user migration scripts
-Demonstrates how to use the export and import functionality programmatically
+Example usage of Amazon Connect migration scripts
+Demonstrates how to use the export, import, and helper utilities programmatically
 """
 
+import json
 import logging
 from connect_user_export import ConnectUserExporter
 from connect_user_import import ConnectUserImporter
+from security_profile_helper import SecurityProfileHelper
+from connect_queue_export import ConnectQueueExporter
+from connect_queue_import import ConnectQueueImporter
+from connect_phone_number_mapper import ConnectPhoneNumberMapper
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -236,6 +241,273 @@ def tag_preservation_example():
     except Exception as e:
         print(f"Tag preservation example failed: {e}")
 
+def cross_region_migration_example():
+    """
+    Example of complete cross-region migration workflow with security profile handling
+    """
+    # Configuration
+    source_instance_id = "your-source-instance-id"
+    target_instance_id = "your-target-instance-id"
+    source_region = "us-east-1"
+    target_region = "eu-west-1"
+    aws_profile = None
+    
+    try:
+        # Step 1: Export users from source region
+        logger.info("Step 1: Exporting users from source region...")
+        exporter = ConnectUserExporter(
+            instance_id=source_instance_id,
+            region=source_region,
+            profile=aws_profile
+        )
+        
+        export_file = exporter.export_users("cross_region_users_export.json")
+        logger.info(f"Export completed: {export_file}")
+        
+        # Step 2: Analyze security profiles for target region
+        logger.info("Step 2: Analyzing security profiles...")
+        security_helper = SecurityProfileHelper(region=target_region, profile=aws_profile)
+        
+        # Compare security profiles between regions
+        comparison = security_helper.compare_security_profiles(export_file, target_instance_id)
+        
+        print(f"Security Profile Analysis:")
+        print(f"- Required profiles: {len(comparison['required_profiles'])}")
+        print(f"- Missing profiles: {len(comparison['missing_profiles'])}")
+        print(f"- Available profiles: {len(comparison['existing_profiles'])}")
+        
+        # Step 3: Create missing security profiles if needed
+        if comparison['missing_profiles']:
+            logger.info("Step 3: Creating missing security profiles...")
+            commands = security_helper.generate_security_profile_commands(export_file, target_instance_id)
+            
+            # Save commands to script file
+            script_file = f"create_security_profiles_{target_instance_id}.sh"
+            with open(script_file, 'w') as f:
+                f.write("#!/bin/bash\n")
+                f.write("# Auto-generated security profile creation script\n\n")
+                for command in commands:
+                    f.write(f"{command}\n")
+            
+            print(f"Security profile creation script saved: {script_file}")
+            print("Run this script to create missing security profiles before importing users")
+        
+        # Step 4: Import users to target region (dry run first)
+        logger.info("Step 4: Running import dry run...")
+        importer = ConnectUserImporter(
+            instance_id=target_instance_id,
+            region=target_region,
+            profile=aws_profile
+        )
+        
+        dry_run_results = importer.import_users(
+            export_file=export_file,
+            batch_size=25,
+            dry_run=True
+        )
+        
+        print(f"Cross-region migration dry run results:")
+        print(f"- Would succeed: {dry_run_results['success']}")
+        print(f"- Would fail: {dry_run_results['failed']}")
+        print(f"- Would skip: {dry_run_results['skipped']}")
+        
+        if dry_run_results['success'] > 0 and not comparison['missing_profiles']:
+            logger.info("Step 5: Proceeding with actual import...")
+            import_results = importer.import_users(
+                export_file=export_file,
+                batch_size=25,
+                dry_run=False
+            )
+            
+            print(f"Cross-region migration completed:")
+            print(f"- Successfully migrated: {import_results['success']} users")
+            print(f"- Failed: {import_results['failed']} users")
+        else:
+            print("Create missing security profiles first, then run import manually")
+        
+    except Exception as e:
+        logger.error(f"Cross-region migration failed: {e}")
+        raise
+
+def security_profile_analysis_example():
+    """
+    Example of using the security profile helper for analysis and creation
+    """
+    export_file = "users_export.json"
+    target_instance_id = "your-target-instance-id"
+    region = "us-east-1"
+    
+    try:
+        # Initialize security profile helper
+        security_helper = SecurityProfileHelper(region=region)
+        
+        # Step 1: Analyze export file
+        print("Step 1: Analyzing export file for security profile requirements...")
+        analysis = security_helper.analyze_export_file(export_file)
+        
+        print(f"Export Analysis Results:")
+        print(f"- Total users: {analysis['total_users']}")
+        print(f"- Unique security profiles required: {len(analysis['required_profiles'])}")
+        print(f"- Security profiles by name:")
+        for profile_name, count in analysis['profile_usage'].items():
+            print(f"  - {profile_name}: {count} users")
+        
+        # Step 2: Compare with target instance
+        print("\nStep 2: Comparing with target instance...")
+        comparison = security_helper.compare_security_profiles(export_file, target_instance_id)
+        
+        print(f"Comparison Results:")
+        print(f"- Existing profiles: {len(comparison['existing_profiles'])}")
+        print(f"- Missing profiles: {len(comparison['missing_profiles'])}")
+        
+        if comparison['missing_profiles']:
+            print(f"Missing profiles:")
+            for profile in comparison['missing_profiles']:
+                print(f"  - {profile}")
+        
+        # Step 3: Generate creation commands if needed
+        if comparison['missing_profiles']:
+            print("\nStep 3: Generating creation commands...")
+            commands = security_helper.generate_security_profile_commands(export_file, target_instance_id)
+            
+            print(f"Generated {len(commands)} AWS CLI commands:")
+            for i, command in enumerate(commands[:3], 1):  # Show first 3 as examples
+                print(f"  {i}. {command}")
+            
+            if len(commands) > 3:
+                print(f"  ... and {len(commands) - 3} more commands")
+        
+    except Exception as e:
+        print(f"Security profile analysis failed: {e}")
+
+def queue_migration_with_prefix_example():
+    """
+    Example of exporting queues with BU tag and queue name prefix filtering
+    """
+    instance_id = "your-instance-id"
+    bu_tag_value = "YourBU"
+    queue_prefix = "Q_QC_"  # Only export queues starting with Q_QC_
+    region = "us-east-1"
+    
+    try:
+        # Export queues with both BU tag and prefix filtering
+        print(f"Exporting queues with BU tag '{bu_tag_value}' and prefix '{queue_prefix}'...")
+        
+        queue_exporter = ConnectQueueExporter(
+            instance_id=instance_id,
+            bu_tag_value=bu_tag_value,
+            queue_prefix=queue_prefix,
+            region=region
+        )
+        
+        export_file = queue_exporter.export_queues()
+        print(f"Queue export completed: {export_file}")
+        
+        # Load and analyze the export
+        with open(export_file, 'r') as f:
+            export_data = json.load(f)
+        
+        print(f"Export Summary:")
+        print(f"- Total queues scanned: {export_data['TotalQueuesScanned']}")
+        print(f"- Matching queues exported: {export_data['TotalQueues']}")
+        print(f"- BU tag filter: {export_data['BUTagValue']}")
+        print(f"- Queue prefix filter: {export_data['QueuePrefix']}")
+        
+        # Show sample queue names
+        if export_data['Queues']:
+            print(f"Sample exported queue names:")
+            for queue in export_data['Queues'][:5]:
+                print(f"  - {queue['Queue']['Name']}")
+        
+        # Example without prefix filtering (all queues for BU)
+        print(f"\nComparing with export of all queues for BU '{bu_tag_value}'...")
+        
+        queue_exporter_all = ConnectQueueExporter(
+            instance_id=instance_id,
+            bu_tag_value=bu_tag_value,
+            region=region
+        )
+        
+        export_file_all = queue_exporter_all.export_queues("all_queues_export.json")
+        
+        with open(export_file_all, 'r') as f:
+            export_data_all = json.load(f)
+        
+        print(f"All queues export: {export_data_all['TotalQueues']} queues")
+        print(f"Prefix filtered export: {export_data['TotalQueues']} queues")
+        print(f"Filtering saved: {export_data_all['TotalQueues'] - export_data['TotalQueues']} queues")
+        
+    except Exception as e:
+        print(f"Queue migration with prefix example failed: {e}")
+
+def phone_number_mapping_example():
+    """
+    Example of creating phone number mappings for cross-region migration
+    """
+    source_instance_id = "your-source-instance-id"
+    target_instance_id = "your-target-instance-id"
+    source_region = "us-east-1"
+    target_region = "eu-west-1"
+    
+    try:
+        # Step 1: Create mapping template
+        print("Step 1: Creating phone number mapping template...")
+        
+        phone_mapper = ConnectPhoneNumberMapper(region=source_region)
+        template_file = phone_mapper.create_mapping_template(
+            source_instance_id, 
+            target_instance_id,
+            target_region=target_region
+        )
+        
+        print(f"Mapping template created: {template_file}")
+        
+        # Step 2: Load and show template structure
+        with open(template_file, 'r') as f:
+            template_data = json.load(f)
+        
+        print(f"Template contains:")
+        print(f"- Source instance: {template_data['source_instance']}")
+        print(f"- Target instance: {template_data['target_instance']}")
+        print(f"- Source region: {template_data['source_region']}")
+        print(f"- Target region: {template_data['target_region']}")
+        print(f"- Phone numbers to map: {len(template_data['phone_mappings'])}")
+        
+        # Show sample mappings
+        if template_data['phone_mappings']:
+            print(f"Sample phone number mappings needed:")
+            for phone_number, mapping in list(template_data['phone_mappings'].items())[:3]:
+                print(f"  {phone_number}: {mapping['source_id']} -> [TARGET_ID_NEEDED]")
+        
+        # Step 3: Validate mapping (assuming user filled it out)
+        print(f"\nStep 3: Validating mapping file...")
+        
+        # For demo, create a sample filled mapping
+        sample_mapping = template_file.replace('.json', '_filled.json')
+        filled_data = template_data.copy()
+        
+        # Simulate filling out target IDs (in real usage, user would do this)
+        for phone_number, mapping in filled_data['phone_mappings'].items():
+            mapping['target_id'] = f"target-{mapping['source_id'][-8:]}"  # Demo target ID
+        
+        with open(sample_mapping, 'w') as f:
+            json.dump(filled_data, f, indent=2)
+        
+        # Validate the filled mapping
+        validation_result = phone_mapper.validate_mapping_file(sample_mapping)
+        
+        print(f"Validation results:")
+        print(f"- Valid mappings: {validation_result['valid_mappings']}")
+        print(f"- Invalid mappings: {validation_result['invalid_mappings']}")
+        print(f"- Missing target IDs: {validation_result['missing_target_ids']}")
+        
+        if validation_result['valid_mappings'] > 0:
+            print(f"Mapping file is ready for use in queue import!")
+            print(f"Use: --phone-mapping {sample_mapping}")
+        
+    except Exception as e:
+        print(f"Phone number mapping example failed: {e}")
+
 if __name__ == "__main__":
     # Uncomment the example you want to run
     
@@ -257,8 +529,20 @@ if __name__ == "__main__":
     # Tag preservation demonstration
     # tag_preservation_example()
     
-    print("Amazon Connect User Migration Examples")
-    print("=====================================")
+    # Cross-region migration with security profiles
+    # cross_region_migration_example()
+    
+    # Security profile analysis and creation
+    # security_profile_analysis_example()
+    
+    # Queue export with prefix filtering
+    # queue_migration_with_prefix_example()
+    
+    # Phone number mapping for cross-region
+    # phone_number_mapping_example()
+    
+    print("Amazon Connect Migration Examples")
+    print("=================================")
     print("Update the configuration variables and uncomment the desired example function to run:")
     print("1. migrate_users_example() - Complete migration workflow")
     print("2. export_only_example() - Export users only")
@@ -266,3 +550,7 @@ if __name__ == "__main__":
     print("4. validate_export_file_example() - Validate export file")
     print("5. performance_optimization_example() - Optimize batch sizes")
     print("6. tag_preservation_example() - Demonstrate tag handling")
+    print("7. cross_region_migration_example() - Cross-region migration with security profiles")
+    print("8. security_profile_analysis_example() - Analyze and create security profiles")
+    print("9. queue_migration_with_prefix_example() - Export queues with prefix filtering")
+    print("10. phone_number_mapping_example() - Create phone number mappings for cross-region")

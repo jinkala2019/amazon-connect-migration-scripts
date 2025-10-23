@@ -72,11 +72,14 @@
 ### `example_usage.py` - **Programming Examples**
 - **Purpose**: Shows how to use the migration scripts programmatically in Python code
 - **Features**:
-  - Complete migration workflow examples
+  - Complete migration workflow examples (same-region and cross-region)
   - Export/import only examples
   - Validation and performance optimization examples
   - Tag preservation demonstrations
-- **Usage**: Modify configuration and uncomment desired examples
+  - Security profile analysis and creation examples
+  - Queue export with prefix filtering examples
+  - Phone number mapping for cross-region migrations
+- **Usage**: Modify configuration and uncomment desired examples (10 total examples)
 
 ## Documentation & Guides
 
@@ -161,6 +164,15 @@
   - Current implementation details
   - Missing functionality identification
 
+### `security_profile_helper.py` - **Security Profile Management Tool**
+- **Purpose**: Analyze and create missing security profiles for cross-region migrations
+- **Features**:
+  - Analyze export files to identify required security profiles
+  - Compare with target instance to find missing profiles
+  - Generate AWS CLI scripts to create missing profiles
+  - Support for cross-region migration scenarios
+- **Usage**: `python security_profile_helper.py --action compare --export-file users.json --target-instance target-id`
+
 ### `FILE_OVERVIEW.md` - **This Document**
 - **Purpose**: Overview of all files in the project and their purposes
 
@@ -217,6 +229,7 @@ Core Migration Scripts (Independent):
 Helper Scripts (Use Core Scripts):
 ├── performance_tuning.py → imports connect_user_import.py
 ├── example_usage.py → imports user migration scripts
+├── security_profile_helper.py → standalone security profile management
 └── tag_handling_analysis.py → analysis only, no imports
 
 Documentation (Reference Only):
@@ -246,13 +259,20 @@ aws configure
 # 3. Export users
 python connect_user_export.py --instance-id source-instance-id
 
-# 4. Validate user import (dry run)
+# 4. Check security profiles (for cross-region migrations)
+python security_profile_helper.py --action compare --export-file users_export.json --target-instance target-instance-id
+
+# 5. Create missing security profiles if needed
+python security_profile_helper.py --action create-script --export-file users_export.json --target-instance target-instance-id
+./create_security_profiles_*.sh
+
+# 6. Validate user import (dry run)
 python connect_user_import.py --instance-id target-instance-id --export-file users_export.json --dry-run
 
-# 5. Optimize performance (optional)
+# 7. Optimize performance (optional)
 python performance_tuning.py
 
-# 6. Import users
+# 8. Import users
 python connect_user_import.py --instance-id target-instance-id --export-file users_export.json --batch-size 50
 ```
 

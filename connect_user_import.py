@@ -209,13 +209,24 @@ class ConnectUserImporter:
         
         # Map security profiles
         for security_profile in user_data.get('SecurityProfiles', []):
-            security_profile_name = security_profile['SecurityProfileName']
+            # Handle different possible field names for security profile name
+            security_profile_name = None
+            if 'SecurityProfileName' in security_profile:
+                security_profile_name = security_profile['SecurityProfileName']
+            elif 'Name' in security_profile:
+                security_profile_name = security_profile['Name']
+            else:
+                logger.error(f"Security profile missing name field. Available fields: {list(security_profile.keys())}")
+                continue
+            
             security_profile_id = existing_resources['security_profiles'].get(security_profile_name)
             
             if security_profile_id:
                 security_profile_ids.append(security_profile_id)
+                logger.debug(f"Mapped security profile: {security_profile_name} -> {security_profile_id}")
             else:
-                logger.warning(f"Security profile not found: {security_profile_name}")
+                logger.warning(f"Security profile not found in target instance: '{security_profile_name}'")
+                logger.info(f"Available security profiles in target: {list(existing_resources['security_profiles'].keys())}")
         
         # Map hierarchy group
         if user_data.get('HierarchyGroup'):
@@ -252,7 +263,14 @@ class ConnectUserImporter:
                 return False
             
             if not security_profile_ids:
-                logger.error(f"Cannot create user {username}: No valid security profiles")
+                # Log detailed information about missing security profiles
+                user_security_profiles = [
+                    sp.get('SecurityProfileName') or sp.get('Name', 'Unknown') 
+                    for sp in user_data.get('SecurityProfiles', [])
+                ]
+                logger.error(f"Cannot create user {username}: No valid security profiles found")
+                logger.error(f"User {username} requires security profiles: {user_security_profiles}")
+                logger.error(f"Available security profiles in target instance: {list(existing_resources['security_profiles'].keys())}")
                 return False
             
             # Prepare user creation parameters
@@ -298,6 +316,67 @@ class ConnectUserImporter:
             logger.error(f"Unexpected error creating user {username}: {e}")
             return False
     
+    def analyze_security_profiles(self, users_data: List[Dict], existing_resources: Dict) -> Dict:
+        """
+        Analyze security profile requirements and availability
+        
+        Args:
+            users_data: List of user data from export
+            existing_resources: Existing resources in target instance
+            
+        Returns:
+            Analysis results with missing profiles and affected users
+        """
+        required_profiles = set()
+        profile_usage = {}
+        
+        # Collect all required security profiles
+        for user_data in users_data:
+            username = user_data['User']['Username']
+            user_profiles = []
+            
+            for security_profile in user_data.get('SecurityProfiles', []):
+                # Handle different possible field names
+                profile_name = security_profile.get('SecurityProfileName') or security_profile.get('Name')
+                if profile_name:
+                    required_profiles.add(profile_name)
+                    user_profiles.append(profile_name)
+                    
+                    if profile_name not in profile_usage:
+                        profile_usage[profile_name] = []
+                    profile_usage[profile_name].append(username)
+        
+        available_profiles = set(existing_resources['security_profiles'].keys())
+        missing_profiles = required_profiles - available_profiles
+        
+        # Analyze impact
+        affected_users = set()
+        for missing_profile in missing_profiles:
+            affected_users.update(profile_usage.get(missing_profile, []))
+        
+        analysis = {
+            'required_profiles': required_profiles,
+            'available_profiles': available_profiles,
+            'missing_profiles': missing_profiles,
+            'affected_users': affected_users,
+            'profile_usage': profile_usage
+        }
+        
+        # Log analysis results
+        logger.info(f"Security Profile Analysis:")
+        logger.info(f"  Required profiles: {len(required_profiles)}")
+        logger.info(f"  Available in target: {len(available_profiles)}")
+        logger.info(f"  Missing profiles: {len(missing_profiles)}")
+        logger.info(f"  Users affected by missing profiles: {len(affected_users)}")
+        
+        if missing_profiles:
+            logger.warning(f"Missing security profiles: {sorted(missing_profiles)}")
+            for missing_profile in sorted(missing_profiles):
+                users_with_profile = profile_usage.get(missing_profile, [])
+                logger.warning(f"  '{missing_profile}' needed by {len(users_with_profile)} users: {users_with_profile[:5]}{'...' if len(users_with_profile) > 5 else ''}")
+        
+        return analysis
+    
     def import_users(self, export_file: str, batch_size: int = 50, dry_run: bool = False) -> Dict:
         """
         Import users from export file
@@ -322,6 +401,21 @@ class ConnectUserImporter:
         
         # Get existing resources for mapping
         existing_resources = self.get_existing_resources()
+        
+        # Analyze security profile requirements
+        security_analysis = self.analyze_security_profiles(users_to_import, existing_resources)
+        
+        if security_analysis['missing_profiles'] and not dry_run:
+            logger.error("Cannot proceed with import due to missing security profiles!")
+            logger.error("Please create the missing security profiles in the target instance first.")
+            logger.error("Or run with --dry-run to see detailed analysis.")
+            return {
+                'success': 0, 
+                'failed': len(security_analysis['affected_users']), 
+                'skipped': 0,
+                'failed_users': list(security_analysis['affected_users']),
+                'missing_security_profiles': list(security_analysis['missing_profiles'])
+            }
         
         # Import statistics
         results = {

@@ -6,6 +6,8 @@ This repository contains comprehensive Python scripts for migrating Amazon Conne
 
 ### 🧑‍💼 User Migration
 - **Complete Profile Export**: All user configurations, routing profiles, security profiles, hierarchy groups
+- **Cross-Region Support**: Migrate users between different AWS regions seamlessly
+- **Security Profile Analysis**: Automatic detection and creation of missing security profiles
 - **Batch Processing**: Handle 10K+ users with configurable batch sizes
 - **Smart Resource Mapping**: Maps existing resources by name, creates missing routing profiles
 
@@ -20,11 +22,13 @@ This repository contains comprehensive Python scripts for migrating Amazon Conne
 - **Phone Number Mapping**: Maps outbound caller ID phone numbers between instances
 
 ### 🔧 Common Features
+- **Cross-Region Migration**: Full support for migrating between different AWS regions
 - **Tag Preservation**: Maintains all custom tags during migration
 - **Dry Run Mode**: Validate imports without making changes
-- **Error Handling**: Comprehensive error handling with detailed logging
+- **Enhanced Error Handling**: Detailed logging with specific resource identification
 - **Conflict Resolution**: Handles existing resources without overwriting
 - **Performance Optimization**: Built-in rate limiting and memory-efficient processing
+- **Security Profile Helper**: Automated analysis and creation of missing security profiles
 
 ## Prerequisites
 
@@ -63,7 +67,8 @@ Your AWS credentials need the following permissions for all migration types:
                 "connect:AssociateQueueQuickConnects",
                 "connect:ListHoursOfOperations",
                 "connect:ListPhoneNumbers",
-                "connect:ListTagsForResource"
+                "connect:ListTagsForResource",
+                "connect:CreateSecurityProfile"
             ],
             "Resource": "*"
         }
@@ -130,6 +135,9 @@ aws connect list-instances --region us-east-1
 
 # Test script access
 python connect_user_export.py --help
+
+# For cross-region migrations, also test security profile helper
+python security_profile_helper.py --help
 ```
 
 ## Quick Start
@@ -396,7 +404,8 @@ python connect_user_import.py --batch-size 100 --export-file users.json --dry-ru
 | **API throttling** | Batch size too large or network issues | Reduce batch size, check network stability |
 | **Permission denied** | Insufficient IAM permissions | Review and update IAM policy |
 | **Routing profile creation fails** | Missing queue dependencies | Ensure referenced queues exist in target instance |
-| **Users skipped** | Missing security profiles or routing profiles | Check resource mapping, create missing profiles manually |
+| **Users skipped** | Missing security profiles or routing profiles | Use security_profile_helper.py to analyze and create missing profiles |
+| **SecurityProfileName errors** | Security profile field name issues | Enhanced script now handles multiple field name formats |
 
 ### Diagnostic Commands
 
@@ -406,6 +415,12 @@ aws connect list-instances --region us-east-1
 
 # Validate export file before import
 python example_usage.py  # Use validate_export_file_example()
+
+# Analyze security profiles for cross-region migration
+python example_usage.py  # Use security_profile_analysis_example()
+
+# Test cross-region migration workflow
+python example_usage.py  # Use cross_region_migration_example()
 
 # Test performance and find bottlenecks
 python performance_tuning.py
